@@ -1,0 +1,857 @@
+-------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  /Users/israeldiego/Google Drive/Documents Google Drive/Fall 
+> 2018/Stats 506/Homework/Problem Set 2/ps2_q2.log
+  log type:  text
+ opened on:  19 Oct 2018, 11:27:12
+
+. set more off
+
+. 
+. * Load Data
+. fdause DEMO_D.XPT
+
+. save demographics_weights2005.dta, replace
+file demographics_weights2005.dta saved
+
+. fdause OHX_D.XPT
+
+. save oral_health2005.dta, replace
+file oral_health2005.dta saved
+
+. 
+. * Part a) -------------------------------------------------------------
+> --------
+. // Merge data
+. use oral_health2005.dta, clear
+
+. merge 1:1 seqn using demographics_weights2005.dta, keep(match)
+
+    Result                           # of obs.
+    -----------------------------------------
+    not matched                             0
+    matched                             8,305  (_merge==3)
+    -----------------------------------------
+
+. 
+. * Save Data if we want to use it later
+. * save nhanes2005.dta, replace
+. 
+. * Part b) -------------------------------------------------------------
+> --------
+. keep seqn ohx04htc ridagemn riagendr ridreth1 indfmpir sdmvpsu wtmec2yr
+>  sdmvstra
+
+. rename (ohx04htc riagendr ridagemn ridreth1 indfmpir) /*
+> */(bicuspid isMale ageMonths ethnicity incomePovertyRatio)
+
+. 
+. * Dropping any missing values from our data set in order to do our logi
+> stic 
+. * regression. 
+. drop if missing(ageMonths)
+(148 observations deleted)
+
+. drop if missing(bicuspid)
+(589 observations deleted)
+
+. drop if (bicuspid == 9)
+(5 observations deleted)
+
+. 
+. * Create indicator variable which is 1 if primary tooth is missing or 
+. * permanent tooth is present
+. generate notPrimary = 1 * (bicuspid ~= 1)
+
+. 
+. * Running our logit regression
+. logit notPrimary ageMonths, nolog
+
+Logistic regression                             Number of obs     =      
+> 7,563
+                                                LR chi2(1)        =    42
+> 47.85
+                                                Prob > chi2       =     0
+> .0000
+Log likelihood = -757.77236                     Pseudo R2         =     0
+> .7370
+
+-------------------------------------------------------------------------
+> -----
+  notPrimary |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Inte
+> rval]
+-------------+-----------------------------------------------------------
+> -----
+   ageMonths |   .0696778   .0025658    27.16   0.000     .0646489    .07
+> 47067
+       _cons |  -8.359362    .323495   -25.84   0.000    -8.993401   -7.7
+> 25324
+-------------------------------------------------------------------------
+> -----
+Note: 0 failures and 3168 successes completely determined.
+
+. matrix data = r(table)'
+
+. putexcel set ps2_q2_Stata.xlsx, sheet(partb) modify
+
+. putexcel A1 = ("notPrimary") A2 = ("ageMonths") /*
+>           */ A3 = ("constant") B1 = ("Coef.") /*
+>           */ C1 = ("Std. Err.") D1 = ("z") /*
+>           */ E1 = ("P>|z|") F1 = ("95% Lower") /*
+>           */ G1 = ("95% Upper") B2 = matrix(data)
+file ps2_q2_Stata.xlsx saved
+
+. 
+. * Manually computing ages (months) at 25, 50, and 75% 
+. matrix coeff = e(b)
+
+. 
+. scalar p = 0.25
+
+. generate age25 = round( (-log(1/p - 1) - coeff[1,2]) / coeff[1,1] )
+
+. scalar p = 0.50
+
+. generate age50 = round( (-log(1/p - 1) - coeff[1,2]) / coeff[1,1] )
+
+. scalar p = 0.75
+
+. generate age75 = round( (-log(1/p - 1) - coeff[1,2]) / coeff[1,1] )
+
+. 
+. generate age25_year = floor(age25 / 12)
+
+. generate age75_year = ceil(age75 / 12)
+
+. 
+. putexcel set ps2_q2_Stata.xlsx, sheet(Ages) modify 
+
+. putexcel A1 = ("25th Percentile") B1 = ("50th Percentile") /*
+>           */ C1 = ("75th Percentile") D1 = ("Age 25th percentile (years
+> )") /*
+>           */ E1 = ("Age 75th percentile (years)") A2 = (age25) /*
+>           */ B2 = (age50) C2 = (age75) /*
+>           */ D2 = (age25_year) E2 = (age75_year)
+file ps2_q2_Stata.xlsx saved
+
+. 
+. * Part c) -------------------------------------------------------------
+> --------
+. drop if missing(isMale)
+(0 observations deleted)
+
+. drop if missing(ethnicity)
+(0 observations deleted)
+
+. replace isMale = (isMale == 1)
+(3,871 real changes made)
+
+. 
+. * Create ethnicity groups
+. generate byte mexican  = 0
+
+. replace mexican = 1 if ethnicity == 1
+(1,968 real changes made)
+
+. 
+. generate byte black = 0
+
+. replace black = 1 if ethnicity == 4
+(2,030 real changes made)
+
+. 
+. generate byte other  = 0
+
+. replace other = 1 if ethnicity == 2 | ethnicity == 5
+(588 real changes made)
+
+. 
+. *------------------------------------- *
+. * Running Regressions Checking for BIC *
+. *------------------------------------- *
+. 
+. * Running our logit regression only with Age
+. logit notPrimary ageMonths, nolog
+
+Logistic regression                             Number of obs     =      
+> 7,563
+                                                LR chi2(1)        =    42
+> 47.85
+                                                Prob > chi2       =     0
+> .0000
+Log likelihood = -757.77236                     Pseudo R2         =     0
+> .7370
+
+-------------------------------------------------------------------------
+> -----
+  notPrimary |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Inte
+> rval]
+-------------+-----------------------------------------------------------
+> -----
+   ageMonths |   .0696778   .0025658    27.16   0.000     .0646489    .07
+> 47067
+       _cons |  -8.359362    .323495   -25.84   0.000    -8.993401   -7.7
+> 25324
+-------------------------------------------------------------------------
+> -----
+Note: 0 failures and 3168 successes completely determined.
+
+. 
+. * Checking BIC of our model
+. estat ic, n()
+
+Akaike's information criterion and Bayesian information criterion
+
+-------------------------------------------------------------------------
+> ----
+       Model |        Obs  ll(null)  ll(model)      df         AIC       
+>  BIC
+-------------+-----------------------------------------------------------
+> ----
+           . |      7,563 -2881.697  -757.7724       2    1519.545   1533
+> .407
+-------------------------------------------------------------------------
+> ----
+               Note: N=Obs used in calculating BIC; see [R] BIC note.
+
+. matrix BIC = r(S)
+
+. 
+. putexcel set ps2_q2_Stata.xlsx, sheet(partc) modify 
+
+. putexcel A2 = ("BIC") B1 = ("age only") /*
+>           */ C1 = ("age + gender") D1 = ("age + mexican") /*
+>           */ E1 = ("age + black") F1 = ("age + black + other") /*
+>           */ G1 = ("age + black + inPovRatio") /*
+>           */ B2 = matrix(BIC[1,6])
+file ps2_q2_Stata.xlsx saved
+
+.           
+. * ---------------------------------------------------------------------
+> --------
+. * Running our logit regression with Gender
+. logit notPrimary ageMonths isMale, nolog
+
+Logistic regression                             Number of obs     =      
+> 7,563
+                                                LR chi2(2)        =    42
+> 48.13
+                                                Prob > chi2       =     0
+> .0000
+Log likelihood = -757.63086                     Pseudo R2         =     0
+> .7371
+
+-------------------------------------------------------------------------
+> -----
+  notPrimary |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Inte
+> rval]
+-------------+-----------------------------------------------------------
+> -----
+   ageMonths |   .0696983   .0025674    27.15   0.000     .0646663    .07
+> 47302
+      isMale |   -.070195   .1319718    -0.53   0.595    -.3288549    .18
+> 84649
+       _cons |  -8.327219    .328652   -25.34   0.000    -8.971365   -7.6
+> 83073
+-------------------------------------------------------------------------
+> -----
+Note: 0 failures and 3172 successes completely determined.
+
+. 
+. * Checking BIC of our model and see if BIC improves
+. estat ic, n() // Gender does not improve BIC
+
+Akaike's information criterion and Bayesian information criterion
+
+-------------------------------------------------------------------------
+> ----
+       Model |        Obs  ll(null)  ll(model)      df         AIC       
+>  BIC
+-------------+-----------------------------------------------------------
+> ----
+           . |      7,563 -2881.697  -757.6309       3    1521.262   1542
+> .055
+-------------------------------------------------------------------------
+> ----
+               Note: N=Obs used in calculating BIC; see [R] BIC note.
+
+. matrix BIC = r(S)
+
+. putexcel C2 = matrix(BIC[1,6])
+file ps2_q2_Stata.xlsx saved
+
+. 
+. * ---------------------------------------------------------------------
+> --------
+. * Running our logit regression with Mexican ethnicity
+. logit notPrimary ageMonths mexican, nolog
+
+Logistic regression                             Number of obs     =      
+> 7,563
+                                                LR chi2(2)        =    42
+> 47.90
+                                                Prob > chi2       =     0
+> .0000
+Log likelihood = -757.74573                     Pseudo R2         =     0
+> .7370
+
+-------------------------------------------------------------------------
+> -----
+  notPrimary |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Inte
+> rval]
+-------------+-----------------------------------------------------------
+> -----
+   ageMonths |   .0696808   .0025659    27.16   0.000     .0646516    .07
+> 47099
+     mexican |   .0320335   .1388088     0.23   0.817    -.2400267    .30
+> 40936
+       _cons |  -8.370769   .3274594   -25.56   0.000    -9.012578   -7.7
+> 28961
+-------------------------------------------------------------------------
+> -----
+Note: 0 failures and 3169 successes completely determined.
+
+. 
+. * Checking BIC of our model and see if BIC improves
+. estat ic, n() // Mexican does not improve BIC
+
+Akaike's information criterion and Bayesian information criterion
+
+-------------------------------------------------------------------------
+> ----
+       Model |        Obs  ll(null)  ll(model)      df         AIC       
+>  BIC
+-------------+-----------------------------------------------------------
+> ----
+           . |      7,563 -2881.697  -757.7457       3    1521.491   1542
+> .285
+-------------------------------------------------------------------------
+> ----
+               Note: N=Obs used in calculating BIC; see [R] BIC note.
+
+. matrix BIC = r(S)
+
+. putexcel D2 = matrix(BIC[1,6])
+file ps2_q2_Stata.xlsx saved
+
+. 
+. * ---------------------------------------------------------------------
+> --------
+. * Running our logit regression with Black ethnicity
+. logit notPrimary ageMonths black, nolog
+
+Logistic regression                             Number of obs     =      
+> 7,563
+                                                LR chi2(2)        =    42
+> 60.91
+                                                Prob > chi2       =     0
+> .0000
+Log likelihood = -751.24372                     Pseudo R2         =     0
+> .7393
+
+-------------------------------------------------------------------------
+> -----
+  notPrimary |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Inte
+> rval]
+-------------+-----------------------------------------------------------
+> -----
+   ageMonths |   .0700749   .0025924    27.03   0.000     .0649938    .07
+> 51559
+       black |   .5207269   .1452682     3.58   0.000     .2360065    .80
+> 54474
+       _cons |  -8.567218   .3342035   -25.63   0.000    -9.222244   -7.9
+> 12191
+-------------------------------------------------------------------------
+> -----
+Note: 0 failures and 3176 successes completely determined.
+
+. 
+. * Checking BIC of our model and see if BIC improves
+. estat ic, n() // Black improves BIC
+
+Akaike's information criterion and Bayesian information criterion
+
+-------------------------------------------------------------------------
+> ----
+       Model |        Obs  ll(null)  ll(model)      df         AIC       
+>  BIC
+-------------+-----------------------------------------------------------
+> ----
+           . |      7,563 -2881.697  -751.2437       3    1508.487   1529
+> .281
+-------------------------------------------------------------------------
+> ----
+               Note: N=Obs used in calculating BIC; see [R] BIC note.
+
+. matrix BIC = r(S)
+
+. putexcel E2 = matrix(BIC[1,6])
+file ps2_q2_Stata.xlsx saved
+
+. 
+. * ---------------------------------------------------------------------
+> --------
+. * Running our logit regression with Other ethnicity
+. logit notPrimary ageMonths black other, nolog
+
+Logistic regression                             Number of obs     =      
+> 7,563
+                                                LR chi2(3)        =    42
+> 63.02
+                                                Prob > chi2       =     0
+> .0000
+Log likelihood = -750.18959                     Pseudo R2         =     0
+> .7397
+
+-------------------------------------------------------------------------
+> -----
+  notPrimary |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Inte
+> rval]
+-------------+-----------------------------------------------------------
+> -----
+   ageMonths |   .0702617   .0026021    27.00   0.000     .0651617    .07
+> 53617
+       black |   .5674178   .1490265     3.81   0.000     .2753313    .85
+> 95043
+       other |   .3374737   .2329567     1.45   0.147    -.1191131    .79
+> 40604
+       _cons |  -8.636156   .3391561   -25.46   0.000    -9.300889   -7.9
+> 71422
+-------------------------------------------------------------------------
+> -----
+Note: 0 failures and 3180 successes completely determined.
+
+. 
+. * Checking BIC of our model and see if BIC improves
+. estat ic, n() // Other does not improve BIC
+
+Akaike's information criterion and Bayesian information criterion
+
+-------------------------------------------------------------------------
+> ----
+       Model |        Obs  ll(null)  ll(model)      df         AIC       
+>  BIC
+-------------+-----------------------------------------------------------
+> ----
+           . |      7,563 -2881.697  -750.1896       4    1508.379   1536
+> .103
+-------------------------------------------------------------------------
+> ----
+               Note: N=Obs used in calculating BIC; see [R] BIC note.
+
+. matrix BIC = r(S)
+
+. putexcel F2 = matrix(BIC[1,6])
+file ps2_q2_Stata.xlsx saved
+
+. 
+. * ---------------------------------------------------------------------
+> --------
+. * Running our logit regression with Income Poverty Ratio
+. logit notPrimary ageMonths black incomePovertyRatio, nolog
+
+Logistic regression                             Number of obs     =      
+> 7,246
+                                                LR chi2(3)        =    41
+> 07.26
+                                                Prob > chi2       =     0
+> .0000
+Log likelihood = -713.67085                     Pseudo R2         =     0
+> .7421
+
+-------------------------------------------------------------------------
+> -----
+  notPrimary |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Inte
+> rval]
+-------------+-----------------------------------------------------------
+> -----
+   ageMonths |   .0713747   .0027063    26.37   0.000     .0660704    .07
+> 66789
+       black |   .4949803   .1489242     3.32   0.001     .2030943    .78
+> 68664
+incomePove~o |  -.1190729    .045378    -2.62   0.009    -.2080121   -.03
+> 01337
+       _cons |  -8.460287   .3510302   -24.10   0.000    -9.148294   -7.7
+> 72281
+-------------------------------------------------------------------------
+> -----
+Note: 0 failures and 3063 successes completely determined.
+
+. 
+. * Checking BIC of our model and see if BIC improves
+. estat ic, n() // Income Poverty Ratio improves BIC
+
+Akaike's information criterion and Bayesian information criterion
+
+-------------------------------------------------------------------------
+> ----
+       Model |        Obs  ll(null)  ll(model)      df         AIC       
+>  BIC
+-------------+-----------------------------------------------------------
+> ----
+           . |      7,246 -2767.303  -713.6708       4    1435.342   1462
+> .895
+-------------------------------------------------------------------------
+> ----
+               Note: N=Obs used in calculating BIC; see [R] BIC note.
+
+. matrix BIC = r(S)
+
+. putexcel G2 = matrix(BIC[1,6])
+file ps2_q2_Stata.xlsx saved
+
+. 
+. * RESULT 
+. * We added Black ethnicity and Income Poverty Ratio to the regression w
+> hich 
+. * improved BIC
+. 
+. logit notPrimary ageMonths black incomePovertyRatio, nolog
+
+Logistic regression                             Number of obs     =      
+> 7,246
+                                                LR chi2(3)        =    41
+> 07.26
+                                                Prob > chi2       =     0
+> .0000
+Log likelihood = -713.67085                     Pseudo R2         =     0
+> .7421
+
+-------------------------------------------------------------------------
+> -----
+  notPrimary |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Inte
+> rval]
+-------------+-----------------------------------------------------------
+> -----
+   ageMonths |   .0713747   .0027063    26.37   0.000     .0660704    .07
+> 66789
+       black |   .4949803   .1489242     3.32   0.001     .2030943    .78
+> 68664
+incomePove~o |  -.1190729    .045378    -2.62   0.009    -.2080121   -.03
+> 01337
+       _cons |  -8.460287   .3510302   -24.10   0.000    -9.148294   -7.7
+> 72281
+-------------------------------------------------------------------------
+> -----
+Note: 0 failures and 3063 successes completely determined.
+
+. 
+. matrix data = r(table)'
+
+. putexcel set ps2_q2_Stata.xlsx, sheet(partc2) modify 
+
+. putexcel A1 = ("notPrimary") A2 = ("ageMonths") /*
+>           */ A3 = ("black") A4 = ("inPovRatio")  A5 = ("constant") /*
+>           */ B1 = ("Coef.") C1 = ("Std. Err.") D1 = ("t") /*
+>           */ E1 = ("P>|t|") F1 = ("95% Lower") /*
+>           */ G1 = ("95% Upper") B2 = matrix(data)
+file ps2_q2_Stata.xlsx saved
+
+. 
+. * Part d) -------------------------------------------------------------
+> --------
+. 
+. * 1) Computing Adjusted Predictions at the mean for representative ages
+. 
+. * Running our logit regression only with Age
+. logit notPrimary ageMonths, nolog
+
+Logistic regression                             Number of obs     =      
+> 7,563
+                                                LR chi2(1)        =    42
+> 47.85
+                                                Prob > chi2       =     0
+> .0000
+Log likelihood = -757.77236                     Pseudo R2         =     0
+> .7370
+
+-------------------------------------------------------------------------
+> -----
+  notPrimary |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Inte
+> rval]
+-------------+-----------------------------------------------------------
+> -----
+   ageMonths |   .0696778   .0025658    27.16   0.000     .0646489    .07
+> 47067
+       _cons |  -8.359362    .323495   -25.84   0.000    -8.993401   -7.7
+> 25324
+-------------------------------------------------------------------------
+> -----
+Note: 0 failures and 3168 successes completely determined.
+
+. 
+. * Postestimation adjusted predictions at the mean for representative ag
+> es
+. margins, at(ageMonths = (96 108 120 132 144)) atmeans vsquish
+
+Adjusted predictions                            Number of obs     =      
+> 7,563
+Model VCE    : OIM
+
+Expression   : Pr(notPrimary), predict()
+1._at        : ageMonths       =          96
+2._at        : ageMonths       =         108
+3._at        : ageMonths       =         120
+4._at        : ageMonths       =         132
+5._at        : ageMonths       =         144
+
+-------------------------------------------------------------------------
+> -----
+             |            Delta-method
+             |     Margin   Std. Err.      z    P>|z|     [95% Conf. Inte
+> rval]
+-------------+-----------------------------------------------------------
+> -----
+         _at |
+          1  |   .1583852   .0128579    12.32   0.000     .1331843    .18
+> 35861
+          2  |   .3027664   .0162397    18.64   0.000     .2709372    .33
+> 45956
+          3  |   .5004937   .0166357    30.09   0.000     .4678883    .53
+> 30992
+          4  |   .6980667   .0146539    47.64   0.000     .6693456    .72
+> 67879
+          5  |   .8421406   .0112298    74.99   0.000     .8201306    .86
+> 41506
+-------------------------------------------------------------------------
+> -----
+
+. matrix data = r(table)'
+
+. putexcel set ps2_q2_Stata.xlsx, sheet(partd1) modify 
+
+. putexcel A1 = ("Rep. Ages") A2 = ("age1") /*
+>           */ A3 = ("age2") A4 = ("age3")  A5 = ("age4") A6 = ("age5") /
+> *
+>           */ B1 = ("Margin") C1 = ("Std. Err.") D1 = ("z") /*
+>           */ E1 = ("P>|z|") F1 = ("95% Lower") /*
+>           */ G1 = ("95% Upper") B2 = matrix(data)
+file ps2_q2_Stata.xlsx saved
+
+. 
+. * 2) Marginal Effects at the mean using Black categorical variable at 
+. * representative ages
+. 
+. * Running our logit regression only with Age
+. logit notPrimary ageMonths black incomePovertyRatio, nolog
+
+Logistic regression                             Number of obs     =      
+> 7,246
+                                                LR chi2(3)        =    41
+> 07.26
+                                                Prob > chi2       =     0
+> .0000
+Log likelihood = -713.67085                     Pseudo R2         =     0
+> .7421
+
+-------------------------------------------------------------------------
+> -----
+  notPrimary |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Inte
+> rval]
+-------------+-----------------------------------------------------------
+> -----
+   ageMonths |   .0713747   .0027063    26.37   0.000     .0660704    .07
+> 66789
+       black |   .4949803   .1489242     3.32   0.001     .2030943    .78
+> 68664
+incomePove~o |  -.1190729    .045378    -2.62   0.009    -.2080121   -.03
+> 01337
+       _cons |  -8.460287   .3510302   -24.10   0.000    -9.148294   -7.7
+> 72281
+-------------------------------------------------------------------------
+> -----
+Note: 0 failures and 3063 successes completely determined.
+
+. 
+. * Postestimation adjusted predictions at the mean for representative ag
+> es
+. margins, dydx(black) at(ageMonths = (96 108 120 132 144)) atmeans
+
+Conditional marginal effects                    Number of obs     =      
+> 7,246
+Model VCE    : OIM
+
+Expression   : Pr(notPrimary), predict()
+dy/dx w.r.t. : black
+
+1._at        : ageMonths       =          96
+               black           =    .2718741 (mean)
+               incomePove~o    =    2.463474 (mean)
+
+2._at        : ageMonths       =         108
+               black           =    .2718741 (mean)
+               incomePove~o    =    2.463474 (mean)
+
+3._at        : ageMonths       =         120
+               black           =    .2718741 (mean)
+               incomePove~o    =    2.463474 (mean)
+
+4._at        : ageMonths       =         132
+               black           =    .2718741 (mean)
+               incomePove~o    =    2.463474 (mean)
+
+5._at        : ageMonths       =         144
+               black           =    .2718741 (mean)
+               incomePove~o    =    2.463474 (mean)
+
+-------------------------------------------------------------------------
+> -----
+             |            Delta-method
+             |      dy/dx   Std. Err.      z    P>|z|     [95% Conf. Inte
+> rval]
+-------------+-----------------------------------------------------------
+> -----
+black        |
+         _at |
+          1  |   .0616832   .0185868     3.32   0.001     .0252538    .09
+> 81126
+          2  |   .1012632   .0303075     3.34   0.001     .0418616    .16
+> 06647
+          3  |   .1236546   .0371876     3.33   0.001     .0507682    .19
+> 65411
+          4  |    .105784   .0320303     3.30   0.001     .0430059    .16
+> 85622
+          5  |   .0664947   .0203261     3.27   0.001     .0266563     .1
+> 06333
+-------------------------------------------------------------------------
+> -----
+
+. matrix data = r(table)'
+
+. putexcel set ps2_q2_Stata.xlsx, sheet(partd2) modify 
+
+. putexcel A1 = ("Rep. Ages") A2 = ("age1") /*
+>           */ A3 = ("age2") A4 = ("age3")  A5 = ("age4") A6 = ("age5") /
+> *
+>           */ B1 = ("dy/dx") C1 = ("Std. Err.") D1 = ("z") /*
+>           */ E1 = ("P>|z|") F1 = ("95% Lower") /*
+>           */ G1 = ("95% Upper") B2 = matrix(data)
+file ps2_q2_Stata.xlsx saved
+
+. 
+. * 3) Computing Average Marginal Effects using Black categorical variabl
+> e at 
+. * representative ages
+. margins, dydx(black) at(ageMonths = (96 108 120 132 144))
+
+Average marginal effects                        Number of obs     =      
+> 7,246
+Model VCE    : OIM
+
+Expression   : Pr(notPrimary), predict()
+dy/dx w.r.t. : black
+
+1._at        : ageMonths       =          96
+
+2._at        : ageMonths       =         108
+
+3._at        : ageMonths       =         120
+
+4._at        : ageMonths       =         132
+
+5._at        : ageMonths       =         144
+
+-------------------------------------------------------------------------
+> -----
+             |            Delta-method
+             |      dy/dx   Std. Err.      z    P>|z|     [95% Conf. Inte
+> rval]
+-------------+-----------------------------------------------------------
+> -----
+black        |
+         _at |
+          1  |   .0623261   .0189034     3.30   0.001     .0252762     .0
+> 99376
+          2  |   .1000681   .0295025     3.39   0.001     .0422443     .1
+> 57892
+          3  |   .1208543   .0355014     3.40   0.001     .0512728    .19
+> 04357
+          4  |   .1044994    .031303     3.34   0.001     .0431467    .16
+> 58522
+          5  |   .0671024      .0207     3.24   0.001     .0265311    .10
+> 76737
+-------------------------------------------------------------------------
+> -----
+
+. matrix data = r(table)'
+
+. putexcel set ps2_q2_Stata.xlsx, sheet(partd3) modify 
+
+. putexcel A1 = ("Rep. Ages") A2 = ("age1") /*
+>           */ A3 = ("age2") A4 = ("age3")  A5 = ("age4") A6 = ("age5") /
+> *
+>           */ B1 = ("dy/dx") C1 = ("Std. Err.") D1 = ("z") /*
+>           */ E1 = ("P>|z|") F1 = ("95% Lower") /*
+>           */ G1 = ("95% Upper") B2 = matrix(data)
+file ps2_q2_Stata.xlsx saved
+
+. 
+. 
+. * Part e) -------------------------------------------------------------
+> --------
+. 
+. svyset sdmvpsu [pweight = wtmec2yr], strata(sdmvstra) vce(linearized)
+
+      pweight: wtmec2yr
+          VCE: linearized
+  Single unit: missing
+     Strata 1: sdmvstra
+         SU 1: sdmvpsu
+        FPC 1: <zero>
+
+. 
+. svy: logit notPrimary ageMonths black incomePovertyRatio
+(running logit on estimation sample)
+
+Survey: Logistic regression
+
+Number of strata   =        15                Number of obs     =        
+> 7,246
+Number of PSUs     =        30                Population size   =  240,12
+> 4,554
+                                              Design df         =        
+>    15
+                                              F(   3,     13)   =        
+> 27.65
+                                              Prob > F          =       0
+> .0000
+
+-------------------------------------------------------------------------
+> -----
+             |             Linearized
+  notPrimary |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Inte
+> rval]
+-------------+-----------------------------------------------------------
+> -----
+   ageMonths |    .061941   .0072296     8.57   0.000     .0465314    .07
+> 73506
+       black |   .5434941   .1461948     3.72   0.002     .2318871     .8
+> 55101
+incomePove~o |  -.0811815   .0521922    -1.56   0.141    -.1924264    .03
+> 00635
+       _cons |  -7.516015   .8615597    -8.72   0.000    -9.352386   -5.6
+> 79644
+-------------------------------------------------------------------------
+> -----
+Note: 0 failures and 2811 successes completely determined.
+
+. 
+. matrix data = r(table)'
+
+. putexcel set ps2_q2_Stata.xlsx, sheet(parte) modify 
+
+. putexcel A1 = ("notPrimary") A2 = ("ageMonths") /*
+>           */ A3 = ("black") A4 = ("inPovRatio")  A5 = ("constant") /*
+>           */ B1 = ("Coef.") C1 = ("Std. Err.") D1 = ("t") /*
+>           */ E1 = ("P>|t|") F1 = ("95% Lower") /*
+>           */ G1 = ("95% Upper") B2 = matrix(data)
+file ps2_q2_Stata.xlsx saved
+
+. 
+. log close
+      name:  <unnamed>
+       log:  /Users/israeldiego/Google Drive/Documents Google Drive/Fall 
+> 2018/Stats 506/Homework/Problem Set 2/ps2_q2.log
+  log type:  text
+ closed on:  19 Oct 2018, 11:27:14
+-------------------------------------------------------------------------

@@ -1,0 +1,13 @@
+base
+knitr
+nycflights13
+tidyverse
+ggplot2
+tibble
+tidyr
+readr
+purrr
+dplyr
+stringr
+forcats
+bindrcpp

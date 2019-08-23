@@ -1,0 +1,328 @@
+---
+title: "Problem Set 1"
+author: "Israel Diego"
+date: "October 3, 2018"
+output:
+  html_document:
+    includes:
+      in_header: ./Web_Materials/header.html
+      after_body: ./Web_Materials/disqus.html
+    toc: true
+    toc_float: true
+    theme: cerulean
+    highlight: pygments
+---
+
+```{r setup, echo=FALSE}
+library(knitr)
+opts_chunk$set(echo = FALSE)
+read_chunk('ps1_q2.R')
+read_chunk('ps1_q3.R')
+```
+
+## Question 1
+Using command line tools with 2015 Residential Energy Consumption Survey 
+(RECS 2015) data set
+
+### Part A
+ i. This command counts the total number of rows for Region 3
+```{r q1_A1, engine = 'bash', eval = FALSE, echo = TRUE}
+cut -d ',' -f 2 recs2015_public_v3.csv | grep 3 | wc -l
+```
+ 
+ ii. This command takes the column variables: DOEID, NWEIGHT, andBRRWT1-BRRWT96 
+ and saves the data into a compressed file named 'newData'
+```{r q1_A2, engine = 'bash', eval = FALSE, echo = TRUE}
+cut -d ',' -f 1,475-571 recs2015_public_v3.csv | gzip > newData.gz
+```
+ 
+### Part B
+
+ i. This is a Bash for loop that counts and prints the number of observations 
+ within each region
+```{r q1_B1, engine = 'bash', eval = FALSE, echo = TRUE}
+for region in 1 2 3 4
+do
+
+  echo $region
+  cut -d ',' -f 2 recs2015_public_v3.csv| grep $region | wc -l
+
+done
+```
+ 
+ ii. This command produces a file named region_division.txt and provides a sorted 
+ list showing unique combinations of values from REGIONC and DIVISION.
+```{r q1_B2, engine = 'bash', eval = FALSE, echo = TRUE}
+cut -d ',' -f 2,3 recs2015_public_v3.csv| sort -n | uniq > region_division.txt
+```
+
+```{r question2, message = FALSE, cache = TRUE}
+```
+
+\pagebreak
+
+## Question 2:
+
+### Part A
+In this problem we show which airlines were responsible for at least 1% of the 
+flights departing any of the three NYC airports between January 1 and October 
+31, 2013. The results are shown in the following tables.
+
+```{r Table_q2_A}
+cap_title = '**NYC Flights Jan1 - Oct31, 2013**'
+cap_text0 = 'Proportions per Airline representing more than 1% of total'
+cap_text1 = 'flights in NYC.'
+cap = paste(cap_title, cap_text0, cap_text1)
+cols = c('Airline', 
+         'Flights Per Airline', 
+         'Proportion of Total Flights (%)')
+kable(Flights_2013, caption = cap, col.names = cols)
+```
+
+### Part B
+
+Here we compare the number and percent of annual flights using the airlines from Part A, but in year 2014 instead.
+
+```{r Tables_q2_B}
+cap_title = '**2013 Flights: **'
+cap_text0 = 'We start by summarizing the same data from Part A, but now we '
+cap_text1 = 'include CIs for each point estimate.'
+cap = paste(cap_title, cap_text0, cap_text1)
+cols = c('Airline', 
+         '# Flights 2013', 
+         '(%) 2013', 
+         '95% CI')
+kable(flightData[,c(1:4)], caption = cap, col.names = cols)
+
+cap_title = '**2014 Flights**'
+cols = c('Airline', 
+         '# Flights 2014', 
+         '(%) 2014', 
+         '95% CI')
+kable(flightData[,c(1,5:7)], caption = cap_title, col.names = cols)
+
+cap_title = '**Percent Changes from 2013 to 2014**'
+cols = c('Airline',
+         '(%) Change',
+         'CI on (%) Change')
+kable(flightData[, c(1,8:9)], caption = cap_title, col.names = cols)
+```
+
+The Flights with the Largest Percent Increase and Decrease from 2013 to 2014 
+are shown on the table below.  
+
+```{r MaxPrctIncrsDecreas}
+cap_title = '**Airlines with Largest Increase and Decrease: **'
+cap_text0 = 'First Row shows Largest Increase. '
+cap_text1 = 'Second row shows Largest Decrease. Rows are sorted alphabetically.'
+cap = paste(cap_title, cap_text0, cap_text1)
+cols = c('Airline', '(%) Change')
+kable(flight_Largest_IncDec, caption = cap, col.names = cols)
+```
+
+We notice that some airlines show an increase in the percent of flights, even 
+though their number of flights decreased. Take United Airlines Inc for example. They had 48,880 flights in 2013 and 46,267 flights in 2014. The main reason 
+being that 2014 had less total flights than the total flights in 2013. 
+
+### Part C
+Now we show the percent flights of all three airports for each airline 
+from Part A. Each table summary of the airports is followed by another table showing the carrier at that airport with the largest percent of flights.
+
+```{r Tables_q2_C}
+cols = c('Airline', 
+         '(%)', 
+         '95% CI')
+
+Full_Airport_Name = c('Newark Liberty International Airport (EWR)',
+                      'John F. Kennedy International Airport (JFK)',
+                      'LaGuardia Airport (LGA)')
+                      
+# Initializing airport name
+i = 1 
+airport = numFlightsPerAirport$origin[i]
+cap_title = paste0('**', Full_Airport_Name[i], '**')
+cap_text0 = 'This table shows the percent flights the airlines represented for '
+cap_text1 = 'each airport and we provide Confidence Intervals of the percent ' 
+cap_text2 = 'estimates.'
+cap = paste(cap_title, cap_text0, cap_text1, cap_text2)
+kable(get(paste0('Table', airport)), caption = cap, col.names = cols)
+
+## Max EWR
+cap = paste0('**Largest Carrier at ', Full_Airport_Name[i], '**')
+kable(get(paste0('max', airport)), caption = cap, col.names = cols)
+
+i = 2
+airport = numFlightsPerAirport$origin[i]
+cap_title = paste0('**', Full_Airport_Name[i], '**')
+cap_text0 = 'This table shows the percent flights the airlines represented for '
+cap_text1 = 'each airport and we provide Confidence Intervals of the percent ' 
+cap_text2 = 'estimates.'
+cap = paste(cap_title, cap_text0, cap_text1, cap_text2)
+kable(get(paste0('Table', airport)), caption = cap, col.names = cols)
+
+## Max JFK
+cap = paste0('**Largest Carrier at ', Full_Airport_Name[i], '**')
+kable(get(paste0('max', airport)), caption = cap, col.names = cols)
+
+i = 3 # index of airport
+airport = numFlightsPerAirport$origin[i]
+cap_title = paste0('**', Full_Airport_Name[i], '**')
+cap_text0 = 'This table shows the percent flights the airlines represented for '
+cap_text1 = 'each airport and we provide Confidence Intervals of the percent ' 
+cap_text2 = 'estimates.'
+cap = paste(cap_title, cap_text0, cap_text1, cap_text2)
+kable(get(paste0('Table', airport)), caption = cap, col.names = cols)
+
+## Max LGA
+cap = paste0('**Largest Carrier at ', Full_Airport_Name[i], '**')
+kable(get(paste0('max', airport)), caption = cap, col.names = cols)
+```
+
+\pagebreak
+```{r cleanUp}
+rm(list = ls())
+```
+## Question 3:
+
+```{r question3, message = FALSE}
+```
+
+### Part A
+
+Using the RECS 2015 data, first we compute the percent of homes that have stucco 
+construction as their major outside wall material within each division. We 
+compute (RSEs) using the procedure provided in the RECS 2015 documentation.
+
+```{r table_plot_q3_A}
+cap_title = '**Percent of Stucco Wall Users per Division**'
+cap_text0 = 'For each division we include the percentage of Homes in that '
+cap_text1 = 'division that have Stucco construction as main wall material. '
+cap_text2 = 'We also include Standard Errors and Confidence Intervals of each '
+cap_text3 = 'estimate.'
+cap = paste(cap_title, cap_text0, cap_text1, cap_text2, cap_text3)
+cols = c('Division', 
+         '(%) Stucco', 
+         'Std Error', 
+         '95% CI')
+kable(wall_type_prop, caption = cap, col.names = cols)
+
+par(las = 2) # make label text perpendicular to axis
+par(mar = c(5,8,4,2)) # increase y-axis margin.
+# Plot the bar chart 
+barplot(wall_type_prop$pct, names.arg = wall_type_prop$Division, 
+        xlab="% Stucco Users", col="blue",
+        main = "% Stucco Users per division", horiz = TRUE, cex.names = 0.8)
+```
+
+
+### Part B
+
+Now we show average total electricity usage in kilowatt hours per division. We 
+illustrate our results in the table below and also graphically with a bar chart.
+
+```{r table_plot_q3_B}
+cap_title = '**Average Total Electricity Usage in Kilowatt hours Per Division**'
+cap_text0 = 'For each division we include the Average total KWH used. We also '
+cap_text1 = 'include Standard Errors and Confidence Intervals of each estimate.'
+cap = paste(cap_title, cap_text0, cap_text1)
+cols = c('Division', 
+         'Average KWH', 
+         'Std Error', 
+         '95% CI')
+kable(kwh_mean, caption = cap, col.names = cols)
+
+# Average KWH per Division
+par(las = 2) # make label text perpendicular to axis
+par(mar = c(5,8,4,2)) # increase y-axis margin.
+# Plot the bar chart 
+barplot(kwh_mean$MeanKWH, names.arg = kwh_mean$Division, 
+        xlab = "Average Kilowatt Per Hour (KWH)", col = "blue",
+        main = "Average KWH per division", horiz = TRUE, cex.names = 0.8)
+```
+
+From the bar chart above, East South Central has the highest average total 
+electricity usage. Next, we would like to compute average total electricity 
+usage stratified by urban and rural status. 
+
+```{r KWH_UrbRur}
+cap_title = '**Average Total Electricity Usage in Kilowatt hours Per Division '
+cap_text0 = ' by Urban and Rural Status: ** For each division we include the '
+cap_text1 = ' Average total KWH used in the Urban and Rural categories. We '
+cap_text2 = 'include Standard Errors and Confidence Intervals of each estimate.'
+cap = paste(cap_title, cap_text0, cap_text1, cap_text2)
+cols = c('Division', 
+         'Urban/Rural', 
+         'Average KWH',
+         'Std Error', 
+         '95% CI')
+kable(kwh_UrbRur_mean, caption = cap, col.names = cols)
+
+# KWH stratified by Urban Rural Status
+# Fitting Labels 
+par(las = 2) # make label text perpendicular to axis
+par(mar = c(4,7,1,5)) # increase y-axis margin.
+
+# Plor the Bar Chart
+barplot(kwh_UrbRur_mean$MeanKWH, 
+        horiz = TRUE,
+        names.arg = kwh_UrbRur_mean$Division,
+        main = "Average Kilowatt Per Hour (KWH) by Urban/Rural Status",
+        xlab = "Average Kilowatt Per Hour (KWH)", 
+        cex.axis = 0.7, col = c("darkblue", "red"),
+        cex.lab = 0.8,
+        cex.names = 0.7, cex.main = 0.9)
+
+# Add the legend to the chart
+legend("topleft", c('Rural Average KWH', 'Urban Average KWH'), 
+       cex = 0.5, fill = c("darkblue", "red"))
+```
+
+
+### Part C
+
+Here we show percents of Internet Users by Division and by Urban and Rural 
+Status. We illustrate our results in the table below and also graphically with 
+a bar chart. The goal is to identify the division with the largest disparity 
+between Urban and Rural percentages of Internet Users.
+
+```{r table_plot_q3_C}
+cap_title = '**Percentage of Internet Users by Division and by Urban and Rural '
+cap_text0 = 'Status: ** For each division we include the percent of homes that '
+cap_text1 = 'use internet in the Urban and Rural categories. We '
+cap_text2 = 'include Standard Errors and Confidence Intervals of each estimate.'
+cap = paste(cap_title, cap_text0, cap_text1, cap_text2)
+cols = c('Division', 
+         'Urban/Rural', 
+         '(%) Internet',
+         'Std Error', 
+         '95% CI')
+kable(internet_prop, caption = cap, col.names = cols)
+
+# Fitting Labels 
+par(las = 2) # make label text perpendicular to axis
+par(mar = c(4,7,1,5)) # increase y-axis margin.
+# Plot the bar chart 
+barplot(internet_prop$pct, names.arg = internet_prop$Division,
+        horiz = TRUE, xlab = "% Internet Users",
+        main = "% Internet Users per Division by Urban/Rural Status", 
+        col = c("darkblue", "red"),
+        cex.axis = 0.7, cex.lab = 0.8,
+        cex.names = 0.7, cex.main = 0.9)
+# Add the legend to the chart
+legend("topleft", c('Rural Proportion', 'Urban Proportion'), 
+       cex = 0.5, fill = c("darkblue", "red"))
+```
+
+In the table below, we show the division with the largest absolute difference between Urban and Rural percentage. Mountain South has the largest disparity between percent of Urban and Rural Internet Users.
+
+```{r InternetDisparity}
+cap_title = '**Division with Largest Disparity between Urban and Rural Percent '
+cap_text0 = 'of Internet users**'
+cap = paste(cap_title, cap_text0)
+cols = c('Division', 
+         '(%) Rural',
+         '(%) Urban',
+         'Abs Diff')
+kable(internet_prop_MaxDisparity, caption = cap, col.names = cols)
+```
+

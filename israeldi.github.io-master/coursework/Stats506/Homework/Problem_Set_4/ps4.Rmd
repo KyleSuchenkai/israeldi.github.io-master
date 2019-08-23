@@ -1,0 +1,501 @@
+---
+title: "Problem Set 4"
+author: "Israel Diego"
+date: "`r format.Date(Sys.Date(), '%B %d, %Y')`"
+output:
+  html_document:
+    includes:
+      in_header: ./Web_Materials/header.html
+      after_body: ./Web_Materials/disqus.html
+    toc: true
+    toc_float: true
+    theme: cerulean
+    highlight: pygments
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(ggplot2)
+library(grid)
+library(gridExtra)
+library(latex2exp)
+```
+
+## Question 1
+Use the Lahman baseball data previously seen in the [SQL](https://jbhender.github.io/Stats506/F18/Introduction_to_SQL.html) notes to 
+answer this question. Your answer should be a single SQL query, but may require 
+anonymous tables created using nested queries.
+
+Write an SQL query to construct a table showing the all-time leader in hits 
+(“H” from the “batting” table) for each birth country (“birthCountry” in the 
+“master” table). An all-time leader is the player (“playerID”) with the most 
+total hits across all rows (e.g. seasons/stints). 
+
+Limit your table to players/countries with at least 200 hits and order the table 
+by descending number of hits. 
+
+Create a nicely formatted table with the following columns as your final output: 
+Player (nameFirst nameLast), Debut (debut), Country of Birth (birthCountry), 
+Hits (H).
+
+```{r ps4_q1_source, message = FALSE}
+source('./ps4_q1.R')
+```
+***Solution***
+
+The SQL query we use to extract the all-time leaders per country is shown
+below:
+```{sql q1_code, echo = TRUE, warning = FALSE, message = FALSE, eval=FALSE}
+SELECT firstName || " " || lastName as Name, 
+strftime("%m-%d-%Y", Debut) as Debut, birthCountry, max(Hits) as Hits
+FROM(
+  SELECT bat.playerID, m.nameFirst firstName, m.nameLast lastName, m.debut Debut, 
+  m.birthCountry birthCountry, sum(H) as Hits
+  FROM batting bat
+  INNER JOIN master m ON bat.playerID = m.playerID
+  GROUP BY bat.playerID
+  HAVING Hits >= 200
+)
+GROUP BY birthCountry
+ORDER BY -Hits
+```
+This query produces the following table:
+
+```{r q1_table, message = FALSE}
+cap = '**Table 1.** All-time leaders for most total career hits for each birth 
+country'
+
+allTimeHits %>%
+  knitr::kable( align = 'r', caption = cap)
+```
+
+\pagebreak
+
+## Question 2
+In this question you will modify your answer to Problem Set 3, Question 2 
+(PS3 Q2) to practice parallel, asynchronous, and batch computing. Copy the 
+functions from part a and c of PS3 Q2 to a new file ps4_q2_funcs.R
+
+In each of the parts below, let β be defined as in PS3 Q2 and Σ be block 
+diagonal with Σij=ρβiβj when i≠j and Σii=1.
+
+Create a table or plot for your results from each part.
+
+#### Part a. 
+Write an R script `ps4_q2a.R` that sources `ps4_q2_funcs.R`, and then uses 
+`mclapply` to run parallel simulations for $ρ∈{\{.25i\}}_{-3}^3$.
+
+Let σ=1 and use 10,000 Monte Carlo replications. Reorganize the results into a 
+long data frame `results_q4a` with columns: “rho”, “sigma”, “metric”, “method”, 
+“est”, and “se”. “Metric” should contain the assessment measure: FWER, FDR, 
+Sensitivity, or Specificity and “method” the multiple comparison method used. 
+The columns “est” and “se” should contain the Monte Carlo estimate and its 
+standard error, respectively.
+
+```{r ps4_q2a_source, message = FALSE}
+source('./ps4_q2a.R')
+```
+
+***Solution***
+
+Below we show code demostrate the use of `mclapply` with nested foreach loops.
+
+```{r q2a_code1, eval = FALSE, echo = TRUE}
+# Values of rho for mclapply where rho = (-0.75, -0.5, -0.25,...,0.75)
+rhoVec = (1/4) * c(-3:3)
+
+# Use mclapply for each value of rho with our runSimulation function
+resultsA = mclapply(rhoVec, runSimulation)
+```
+
+The results using `mclapply` are presented below for the Monte Carlo Metric 
+Estimates with parameters $ρ∈{\{.25i\}}_{-3}^3$ and $σ=1$.
+
+The Metrics specificially are: Family Wise Error Rate (FWER), False Discovery 
+Rate (FDR), Sensitivity, and Specificity
+
+```{r q2a_code2, eval = TRUE, echo = FALSE, fig.show= 'hide'}
+# Use data to compute confidence intervals of our estimates to be displayed in our bar charts
+m = qnorm(.975)
+results_q4a = results_q4a %>%
+  mutate(lwr = est - m*se, upr = est + m*se)
+
+# Displaying results in bar charts, displaying each metric on separate subplots
+iteration = 1
+for(metrics in metricList)
+{
+  # Plot for sigma = 1.0
+  filteredData = results_q4a %>% 
+    filter(metric == metrics)
+  
+  p1 = ggplot(filteredData, aes(fill = method, y = est, x = rho)) +
+    geom_bar(position ="dodge", stat="identity") +
+    geom_errorbar( aes( ymin = lwr, ymax = upr), 
+                   col = 'darkslategrey', position=position_dodge()) +
+    scale_x_continuous("rho", labels = as.character(rhoVec), breaks = rhoVec) +
+    ggtitle(TeX(paste0("$\\sigma = 1$"))) + 
+    theme(plot.title = element_text(hjust = 0.5))
+  
+  # Put all three plots together
+  assign(paste0("Chart",iteration),
+         grid.arrange(p1, nrow = 1, ncol = 1,
+                      top = paste0(toupper(metrics), " Estimates")))
+  
+  # Increment our iterator
+  iteration = iteration + 1
+}
+```
+
+##### Metric Estimates for Part a {.tabset}
+
+###### FWER
+```{r q2a_plot1, eval = TRUE, echo = FALSE}
+grid.arrange(Chart1, nrow = 1,ncol = 1)
+```
+
+###### FDR
+```{r q2a_plot2, eval = TRUE, echo = FALSE}
+grid.arrange(Chart2, nrow = 1,ncol = 1)
+```
+
+###### Sensitivity
+```{r q2a_plot3, eval = TRUE, echo = FALSE}
+grid.arrange(Chart3, nrow = 1,ncol = 1)
+```
+
+###### Specificity
+```{r q2a_plot4, eval = TRUE, echo = FALSE}
+grid.arrange(Chart4, nrow = 1,ncol = 1)
+```
+
+#### Part b. 
+Use your script from part a as the basis for a new script `ps4_q2b.R`. Setup a 4 
+core cluster using `doParallel` and then use nested foreach loops to run 
+simulations for $ρ∈{\{.25i\}}_{-3}^3$ and $σ=\{.25,.5,1\}$. Reshape the results 
+as before into `results_q4b` saved to a file 
+`results_q4b.RData`. Use a PBS file to run this script on the Flux cluster.
+
+```{r ps4_q2b_source, message = FALSE}
+source('./ps4_q2b.R')
+```
+
+***Solution***
+
+Below we show code demostrate the use of `doParallel` with nested foreach loops.
+```{r q2b_code1, eval = FALSE, echo = TRUE}
+# Values of rho to be iterated where rho = (-0.75, -0.5, -0.25,...,0.75)
+rhoVec = (1/4) * c(-3:3)
+# Values of sigma to be iterated where sigma = (0.25, 0.5, 1)
+sigmaVec = c(1/4, 1/2, 1)
+
+# How many cores to use in the cluster? #
+ncores = 4 
+
+# set up a cluster called 'cl'
+cl = makeCluster(ncores)
+
+# register the cluster
+registerDoParallel(cl)
+
+## Do parallel computaitons with nested foreach on rho and sigma
+resultsB = foreach(rho = rhoVec) %:%
+  foreach(sigma = sigmaVec) %dopar% {
+    runSimulation(rho, sigma)
+  }
+
+## Always shut the cluster down when done
+stopCluster(cl)
+```
+
+The results using `doParallel` are presented below for the Monte Carlo Metric 
+Estimates with parameters $ρ∈{\{.25i\}}_{-3}^3$ and $σ=\{.25,.5,1\}$.
+
+```{r q2b_code2, eval = TRUE, echo = FALSE, fig.show = 'hide'}
+# Use data to compute confidence intervals of our estimates to be displayed in 
+# our bar charts
+m = qnorm(.975)
+results_q4b = results_q4b %>%
+  mutate(lwr = est - m*se, upr = est + m*se)
+
+# Displaying results in bar charts, displaying each metric on separate subplots
+iteration = 1;
+for(metrics in metricList)
+{
+  # Plot for sigma = 0.25
+  filteredData = results_q4b %>% 
+    filter(sigma == sigmaVec[1], metric == metrics)
+  
+  p1 = ggplot(filteredData, aes(fill = method, y = est, x = rho)) +
+    geom_bar(position ="dodge", stat="identity") +
+    geom_errorbar( aes( ymin = lwr, ymax = upr), 
+                   col = 'darkslategrey', position=position_dodge()) +
+    scale_x_continuous("rho", labels = as.character(rhoVec), breaks = rhoVec) +
+    ggtitle(TeX(paste0("$\\sigma = ", sigmaVec[1], "$"))) + 
+    theme(plot.title = element_text(hjust = 0.5))
+  
+  # Plot for sigma = 0.50
+  filteredData = results_q4b %>% 
+    filter(sigma == sigmaVec[2], metric == metrics)
+  
+  p2 = ggplot(filteredData, aes(fill = method, y = est, x = rho)) +
+    geom_bar(position ="dodge", stat="identity") +
+    geom_errorbar( aes( ymin = lwr, ymax = upr), 
+                   col = 'darkslategrey', position=position_dodge()) +
+    scale_x_continuous("rho", labels = as.character(rhoVec), breaks = rhoVec) +
+    ggtitle(TeX(paste0("$\\sigma = ", sigmaVec[2], "$"))) + 
+    theme(plot.title = element_text(hjust = 0.5))
+  
+  # Plot for sigma = 1.0
+  filteredData = results_q4b %>% 
+    filter(sigma == sigmaVec[3], metric == metrics)
+  
+  p3 = ggplot(filteredData, aes(fill = method, y = est, x = rho)) +
+    geom_bar(position ="dodge", stat="identity") +
+    geom_errorbar( aes( ymin = lwr, ymax = upr), 
+                   col = 'darkslategrey', position=position_dodge()) +
+    scale_x_continuous("rho", labels = as.character(rhoVec), breaks = rhoVec) +
+    ggtitle(TeX(paste0("$\\sigma = ", sigmaVec[3], "$"))) + 
+    theme(plot.title = element_text(hjust = 0.5))
+  
+  # Put all three plots together
+  assign(paste0("Chart",iteration),
+         grid.arrange(p1, p2, p3, nrow = 3,
+                      top = paste0(toupper(metrics), " Estimates")))
+  
+  # Increment our iterator
+  iteration = iteration + 1
+}
+```
+
+##### Metric Estimates for Part b {.tabset}
+
+###### FWER
+```{r q2b_plot1, eval = TRUE, echo = FALSE}
+grid.arrange(Chart1, nrow = 1,ncol = 1)
+```
+
+###### FDR
+```{r q2b_plot2, eval = TRUE, echo = FALSE}
+grid.arrange(Chart2, nrow = 1,ncol = 1)
+```
+
+###### Sensitivity
+```{r q2b_plot3, eval = TRUE, echo = FALSE}
+grid.arrange(Chart3, nrow = 1,ncol = 1)
+```
+
+###### Specificity
+```{r q2b_plot4, eval = TRUE, echo = FALSE}
+grid.arrange(Chart4, nrow = 1,ncol = 1)
+```
+
+#### Part c. 
+-Modify your script from part a to create `ps4_q2c.R` which reads the following 
+arguments from the command line: `sigma`, `mc_rep`, and `n_cores`. 
+
+-Also modify the script to use the `futures` package for parallelism. 
+
+-Use a PBS file to run this script as a job array for $σ=\{.25,.5,1\}$. 
+
+-Hint: see the answer at this page for how to convert `*$PBS_ARRAYID*` to 
+`sigma`.
+
+```{r ps4_q2c_source, message = FALSE}
+source('./ps4_q2c.R')
+```
+
+***Solution***
+
+Below is the R code for demonstrating the use of `future` with nested foreach 
+loops.
+
+```{r q2c_code1, eval = FALSE, echo = TRUE}
+# Parallel computations using plan(multicore) and use future for parallelism
+
+plan(multicore, workers = as.numeric(args_list["n_cores"]))
+
+resultsC = list()
+for(i in 1:length(rhoVec)){
+  resultsC[[i]] = with(args_list, 
+                       future({runSimulation(rhoVec[i], sigma, mc_rep)}))
+}
+```
+
+The results using `future` are presented below for the Monte Carlo Metric 
+Estimates with the default parameters $ρ∈{\{.25i\}}_{-3}^3$ and $σ=1$. The 
+full results of the job array with $σ=\{.25,.5,1\}$ can be found in 
+`ps4_q2c-1.Rout`, `ps4_q2c-2.Rout`, and `ps4_q2c-4.Rout`.
+
+```{r q2c_code2, eval = TRUE, echo = FALSE, fig.show = 'hide'}
+# Use data to compute confidence intervals of our estimates to be displayed in our bar charts
+m = qnorm(.975)
+results_q4c = results_q4c %>%
+  mutate(lwr = est - m*se, upr = est + m*se)
+
+# Displaying results in bar charts, displaying each metric on separate subplots
+iteration = 1
+for(metrics in metricList)
+{
+  # Plot for sigma = 1.0
+  filteredData = results_q4c %>% 
+    filter(metric == metrics)
+  
+  p1 = ggplot(filteredData, aes(fill = method, y = est, x = rho)) +
+    geom_bar(position ="dodge", stat="identity") +
+    geom_errorbar( aes( ymin = lwr, ymax = upr), 
+                   col = 'darkslategrey', position=position_dodge()) +
+    scale_x_continuous("rho", labels = as.character(rhoVec), breaks = rhoVec) +
+    ggtitle(TeX(paste0("$\\sigma = 1$"))) + 
+    theme(plot.title = element_text(hjust = 0.5))
+  
+  # Put all three plots together
+  assign(paste0("Chart",iteration),
+         grid.arrange(p1, nrow = 1, ncol = 1,
+                      top = paste0(toupper(metrics), " Estimates")))
+  
+  # Increment our iterator
+  iteration = iteration + 1
+}
+```
+
+##### Metric Estimates for Part c {.tabset}
+
+###### FWER
+```{r q2c_plot1, eval = TRUE, echo = FALSE}
+grid.arrange(Chart1, nrow = 1,ncol = 1)
+```
+
+###### FDR
+```{r q2c_plot2, eval = TRUE, echo = FALSE}
+grid.arrange(Chart2, nrow = 1,ncol = 1)
+```
+
+###### Sensitivity
+```{r q2c_plot3, eval = TRUE, echo = FALSE}
+grid.arrange(Chart3, nrow = 1,ncol = 1)
+```
+
+###### Specificity
+```{r q2c_plot4, eval = TRUE, echo = FALSE}
+grid.arrange(Chart4, nrow = 1,ncol = 1)
+```
+
+\pagebreak
+
+## Question 3
+For this question you should use the 2016 Medicare Provider Utilization and 
+Payment data available here.
+
+#### Part a.
+Put the data into a folder ./data and then follow the instructions to read this 
+data into SAS.
+
+***Solution***
+
+```{r q3_code1, eval = FALSE, echo = TRUE}
+INFILE './data/Medicare_Provider_Util_Payment_PUF_CY2016.txt'
+```
+
+#### Part b.
+Use one or more data steps to reduce the data set to those rows with “MRI” in 
+the ‘hcpcs_description’ field and where ‘hcpcs_code’ starts with a 7.
+
+***Solution***
+
+```{r q3_code2, eval = FALSE, echo = TRUE}
+data medicare;
+	set Medicare_PS_PUF;
+	where prxmatch("/MRI/", hcpcs_description) AND prxmatch("/^7/", hcpcs_code);
+run;
+```
+
+
+#### Part c.
+Use proc means or proc summary (as needed) to determine the MRI procedures with 
+the highest volume, highest total payment, and highest average payment among the 
+procedures represented here.
+
+***Solution***
+
+```{r q3_code3, eval = FALSE, echo = TRUE}
+/* Calculate Volume */
+proc summary data = medicare;
+	class hcpcs_description;
+	output out = volumeTable
+			sum(line_srvc_cnt) = volume;
+			label volume = "Volume";
+run;
+
+/* Calculate Total Payments and Average Payments */
+proc summary data = medicare;
+	class hcpcs_description;
+	var average_Medicare_payment_amt;
+	weight line_srvc_cnt;
+	output out = paymentsTable
+		sum(average_Medicare_payment_amt) = total_payments
+		mean(average_Medicare_payment_amt) = average_payments;
+		label total_payments = "total_payments"
+				average_payments = "average payments";
+run;
+
+/* Merge the two tables above */
+data highestStatistics;
+	merge volumeTable paymentsTable;
+		by = hcpcs_description;
+		DROP _TYPE_;
+		DROP _FREQ_;
+		DROP by;
+run;
+
+proc sort data = highestStatistics;
+	by descending volume total_payments average_payments;
+RUN;
+```
+
+#### Part d.
+Repeat part b-c using PROC SQL.
+
+***Solution***
+
+```{r q3_code4, eval = FALSE, echo = TRUE}
+/* Part B in SQL */ 
+proc sql;
+create table sqlTable as
+	select hcpcs_description, line_srvc_cnt, average_Medicare_payment_amt, hcpcs_code
+		from Medicare_PS_PUF
+		where hcpcs_description like "%MRI%" and hcpcs_code like "7%";
+quit;
+run;
+
+/* Part C in SQL */ 
+proc sql;
+create table sql_Results as
+	select hcpcs_description, sum(line_srvc_cnt) as volume, sum(line_srvc_cnt*average_Medicare_Payment_amt) as total_payment,
+		sum(line_srvc_cnt*average_Medicare_payment_amt)/sum(line_srvc_cnt) as average_payment
+		from sql_Table
+		group by hcpcs_description
+		order by -average_payment;
+quit;
+run;
+```
+
+
+#### Part e.
+Export the results from “c” and “d” to csv and verify that they match. You do 
+not need to produce a nice table within your solution document.
+
+***Solution***
+
+```{r q3_code5, eval = FALSE, echo = TRUE}
+proc export data = highestStatistics
+	outfile='./ps4_q3c.csv'
+	dbms=csv
+	replace;
+RUN;
+
+proc export data = sql_Results
+	outfile = './ps4_q3d.csv'
+	dbms = csv
+	replace;
+run;
+```

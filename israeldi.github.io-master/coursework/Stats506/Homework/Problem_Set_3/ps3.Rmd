@@ -1,0 +1,622 @@
+---
+title: "Problem Set 3"
+author: "Israel Diego"
+date: "November 19, 2018"
+output:
+  html_document:
+    includes:
+      in_header: ./Web_Materials/header.html
+      after_body: ./Web_Materials/disqus.html
+    toc: true
+    toc_float: true
+    theme: cerulean
+    highlight: pygments
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Question 1
+First, repeat question 3 parts a-c from problem set 1 using data.table for all 
+computations and data manipulations.
+
+Then, formulate and state a question answerable using the RECS data. Your 
+question should be similar in scope to (one of) parts a-c above and should rely 
+on one or more variables not previously used. Answer your question 
+(using data.table) and provide supporting evidence in the form of nicely 
+formatted graphs and/or tables.
+
+```{r ps3_q1_source, message = FALSE}
+source('./ps3_q1.R')
+```
+
+#### Part a. 
+What percent of homes have stucco construction as the 
+*major outside wall material* within each division? Which division has the 
+highest proportion? Which the lowest? 
+
+*Solution:*
+
+```{r q1a_table}
+cap = '**Table 1.** Proportion of homes with stucco construction within each 
+census division in 2015. Estimates are based on the residential energy 
+consumption survey.'
+
+p_stucco_tab = 
+  p_stucco %>%
+  arrange( desc(p_stucco) ) %>%
+  transmute( `Census Division` = division,
+             `% Stucco Homes (95% CI)` = sprintf('%4.1f%% (%4.1f, %4.1f)',
+                                                100*p_stucco, 100*lwr, 100*upr)
+  ) 
+
+p_stucco_tab %>%
+  knitr::kable( align = 'r', caption = cap)
+```
+
+```{r q1a_figure, fig.cap = cap}
+cap = '**Figure 1.** Estimated percent of homes within each census division 
+with major wall type of stucco.'
+
+p_stucco %>% 
+  arrange( desc(p_stucco) ) %>%
+  mutate( Division = 
+            factor( as.character(division),  as.character(division) ) 
+  ) %>%
+  ggplot( aes( x = Division, y = 100*p_stucco) ) +
+  geom_col( fill = 'navy' ) +
+  geom_errorbar( aes( ymin = 100*lwr, ymax = 100*upr), 
+                  col = 'darkslategrey') +
+  theme_bw() +
+  ylab('% Stucco Homes') +
+  xlab('Census Division') +
+  theme( axis.text.x = element_text(size = 8, angle = 90))
+```
+
+*Solution:*
+
+*The Mountain South division has 64.2% of homes built with stucco while East South Central division has the lowest proportion of homes with stucco with only 0.4%.*
+
+#### Part b. 
+What is the average total electricity usage in kilowatt hours
+in each division? Answer the same question stratified by urban and rural status. 
+
+*Solution:*
+
+```{r q1b_table1}
+cap = '**Table 2.** Average annual electricity utilization by Census Division 
+in kwh/home.'
+
+# Multiplier for 95% CI
+m = qnorm(.975)
+
+# Pretty printing
+pwc = function(x) format(round(x), big.mark = ',')
+
+kwh %>%
+  arrange( desc(est) ) %>%
+  transmute( 
+    `Census Division` = division,
+    `Average Electricity Usage, kwh/home (95% CI)` = 
+     sprintf('%s, (%s - %s)', pwc(est), pwc(est - m*se), pwc(est + m*se) )
+  ) %>%
+  knitr::kable( align = 'r', caption = cap)
+```
+
+```{r q1b_figure1, fig.cap = cap}
+cap = '**Figure 2.** Estimated average annual electricity usage in khw/home for
+each of 10 census divisions.'
+kwh %>% 
+  arrange( desc(est) ) %>%
+  mutate( div = factor(as.character(division), as.character(division) ) ) %>%
+  ggplot( aes(x = div, y = est) ) +
+  geom_point() +
+  geom_errorbar( aes(ymin = lwr, ymax = upr)) +
+  coord_flip() +
+  theme_bw() +
+  ylab('kwh/home') +
+  xlab('')
+```
+
+*From the chart above, we see East South Central had the highest average total electricity usage at 14,536 kwh. Below, we compute average total electricity usage stratified by urban and rural status.*
+
+```{r q1b_table2, figure.cap = cap}
+cap = '**Table 3.** Average electricity utilization in kwh per home for urban 
+and rural areas witihin each census division.'
+
+# Order by simple average usage
+kwh_div_urban = kwh_div_urban %>%
+  group_by(division) %>%
+  mutate(div_avg = mean(est)) %>%
+  ungroup() %>%
+  arrange( desc(div_avg) ) %>%
+  mutate( div = as.character(division), 
+          div = factor(div, levels = unique(div) )
+  ) 
+
+# Table
+kwh_div_urban %>%
+  ungroup() %>%
+  transmute( 
+    `Census Division` = div,
+    `Average Electricity Usage, kwh/home (95% CI)` = 
+     sprintf('%s, (%6s - %6s)', pwc(est), pwc(est - m*se), pwc(est + m*se)),
+    Rurality = ifelse(urban, 'Urban, kwh/home (95% CI)', 
+                      'Rural, kwh/home (95% CI)')
+  ) %>%
+  spread(Rurality, `Average Electricity Usage, kwh/home (95% CI)` ) %>%
+  knitr::kable( align  = 'r', cap = cap)
+```
+
+```{r q1b_figure3, fig.cap = cap}
+cap = '**Figure 3.** Estimated average annual electricity usage in khw/home for
+rural and urban areas in each of 10 census divisions.'
+
+kwh_div_urban %>%
+  ungroup() %>%
+  mutate(
+    Rurality = ifelse(urban, 'Urban', 'Rural')
+  ) %>%
+  ggplot( aes(x = div, y = est, color = Rurality) ) +
+  geom_point( position = position_dodge(.5) ) +
+  geom_errorbar( aes(ymin = lwr, ymax = upr),
+                 position = position_dodge(.5)
+  ) +
+  scale_color_manual( values = c('navy', 'darkred')[2:1]) +
+  coord_flip() +
+  theme_bw() +
+  ylab('kwh/home') +
+  xlab('')
+```
+
+#### Part c. 
+Which division has the largest disparity between urban and rural areas in terms 
+of the proportion of homes with internet access?
+
+*Solution:*
+```{r q1c_table}
+cap = "**Table 4.** Urban and rural disparity in internet access for the ten US 
+Census Division in 2015. "
+
+internet_disp %>%
+  arrange( desc(est) ) %>%
+  select( `Census Division` = division, 
+          `Urban Internet Access, % (95% CI)` = Urban,
+          `Rural Internet Access, % (95% CI)` = Rural, 
+          `Difference, % (95% CI)` = Diff) %>%
+  knitr::kable( align = 'r', caption = cap )
+```
+
+*In the table above, we show the division with the largest absolute difference between Urban and Rural percentage. Mountain South has the largest disparity between percent of Urban and Rural Internet Users at 18.5%. This figure is nearly twice as large as the second largest disparity which is in East South Central division.*
+
+```{r q1_c_graph, fig.cap = cap}
+cap = "**Figure 4.** Estimated Urban and rural disparity in internet access in 
+each of 10 US Census Division in 2015. "
+
+internet_ru %>%
+  mutate(Rurality = ifelse(urban, 'Urban', 'Rural') ) %>%
+  ungroup() %>%
+  mutate( division = factor( as.character(division),
+              as.character(
+                {internet_disp %>% arrange(Rural)}$division) ) 
+  ) %>%
+  ggplot( aes(x = division, y = est, fill = Rurality) ) +
+  geom_col( position = position_dodge() ) +
+  geom_errorbar( aes(ymin = lwr, ymax = upr), 
+                 position = position_dodge(),
+                 col = 'slategrey') +
+  theme_bw() + 
+  xlab('') +
+  ylab('% of homes with internet access') +
+  ylim(c(0, 100)) +
+  coord_flip() +
+  scale_fill_manual(values = c('darkred', 'navy'))
+```
+
+#### Part d. 
+What percent of homes have gross annual income higher than 80K within each 
+division? Which divisions have the highest and lowest proportions?
+
+*Solution:*
+```{r q1d_table}
+cap = '**Table 5.** Proportion of homes with income greater than 80K by Census 
+Division.'
+
+# Multiplier for 95% CI
+m = qnorm(.975)
+
+# Pretty printing
+pwc = function(x) format(round(x), big.mark = ',')
+
+p_Income80K %>%
+  arrange( desc(est) ) %>%
+  select( `Census Division` = division, 
+          `% of Homes w/ Income > 80K, (95% CI)` = ci) %>%
+  knitr::kable( align = 'r', caption = cap )
+```
+
+*Pacific and Mountain North divisions seem to have the highest proportion of homes with incomes greater than 80K. Mountain North is also significantly wealthier than its counterpart, the Mountain South division. East North Central division has a higher percent estimate than East South Central, where East South Central also happens to have the least proportion of homes with incomes greater than 80K.*
+
+```{r q1d_figure, fig.cap = cap}
+cap = '**Figure 5.** Estimated proportion of homes with income greater than 80K 
+for each of 10 Census Divisions.'
+p_Income80K %>% 
+  arrange( desc(est) ) %>%
+  mutate( div = factor(as.character(division), as.character(division) ) ) %>%
+  ggplot( aes(x = div, y = est) ) +
+  geom_point() +
+  geom_errorbar( aes(ymin = lwr, ymax = upr)) +
+  coord_flip() +
+  theme_bw() +
+  ylab('% of homes with income > 80K') +
+  xlab('')
+```
+
+\pagebreak
+
+## Question 2
+In this question you will design a Monte Carlo study in R to compare the 
+performance of different methods that adjust for multiple comparisons.
+
+```{r ps3_q2_source, message = FALSE}
+source('./ps3_q2.R')
+```
+
+#### Part a. 
+Write a function that accepts matrices X and beta and returns a p by mc_rep 
+matrix of p-values corresponding to p-values for the hypothesis tests:
+
+In addition to X and beta your function should have arguments sigma (σ) and 
+mc_rep controlling the error variance of Y and number of Monte Carlo replicates, 
+respectively. Your function should solve the least-squares problems using the 
+QR decomposition of X′X. This decomposition should only be computed once each 
+time your function is called.
+
+*Solution:*
+```{r q2_a_code, eval = FALSE, echo = TRUE}
+# MonteCarlo Function the returns P values
+MonteCarloPValues = function(X, beta, sigma2, mc_rep)
+{
+  n = dim(X)[1]
+  p = dim(X)[2]
+  p_values_m = matrix(0, nrow = p, ncol = mc_rep)
+  # QR Decomposition
+  QR = qr(X)
+  
+  for (i in 1:mc_rep)
+  {
+    # Set seed for testing
+    if (FALSE)
+    {
+      set.seed(42)
+    }
+    
+    # Generate Y from X, beta, and sigma2
+    Y = rnorm(n, mean = X %*% beta, sd = sigma2 * diag(p))
+    
+    # Calculate betaHat from QR decomposition
+    betaHat = solve(qr.R(QR), t(qr.Q(QR)) %*% Y )
+    
+    # Calculate Yhat from betaHat
+    Yhat = X %*% betaHat
+    
+    # Calculate sigmaHat squared 
+    sigmaHat2 = (1 / (n - p)) * sum( (Y - Yhat) ^ 2)
+    
+    # Calculate Variance of our betas, getting the diagonal of Var/Cov matrix
+    VAR_BetaHat = diag(sigmaHat2[1] * chol2inv( qr.R(QR) ))
+    
+    # Calculate Z-Score
+    Z = betaHat / sqrt(VAR_BetaHat)
+    
+    # p_values
+    p_values = 2 * (1 - pnorm(abs(Z), 0, 1, lower.tail = TRUE))
+    
+    # Add p_values vector to our matrix of p_values for each Monte Carlo trial
+    p_values_m[, i] = p_values
+  }
+  p_values_m
+}
+
+```
+
+#### Part b.
+Choose Σ and σ as you like. Use the Cholesky factorization of Σ to generate a 
+single X. Pass X, β, and σ to your function from the previous part.
+
+*Solution:*
+```{r q2_b_code, eval = FALSE, echo = TRUE}
+R = chol(SIGMA)
+X = rnorm(n * p)
+dim(X) = c(n, p)
+M = X %*% R
+
+p_values_m = MonteCarloPValues(M, beta, sigma2, mc_rep)
+```
+
+#### Part c.
+Write a function evaluate that takes a set of indices where β≠0 and returns 
+Monte Carlo estimates for the following quantities:
+i. The family wise error rate
+i. The false discovery rate
+i. The sensitivity
+i. The specificity
+
+*Solution:*
+```{r q2_c_code, eval = FALSE, echo = TRUE}
+# Assumes NumBetas != 0 are at the first k rows of our data frame
+evaluate = function(p_values_m, alpha, numBetasNotEqual0)
+{
+  # Initializers
+  k = numBetasNotEqual0 # numBetas != 0
+  numCols = ncol(p_values_m)
+  numBetasEqual0 = nrow(p_values_m) - k
+  testsList = c("FWER", "FDR", "sensitivity", "specificity")
+  
+  # Set up our matrix to collect multiple Tests for each column
+  multipleTests = data.frame(matrix(nrow = length(testsList), ncol = numCols))
+  row.names(multipleTests) = testsList
+  
+  # Look through each column of our p-values
+  for (j in 1:numCols)
+  {
+    # Collect the jth column of p_values
+    p_values = p_values_m[,j]
+    
+    # Collect total number of significant p_values
+    rejections = which(p_values < alpha)
+    
+    # Collecting FN, FP, TN, and TP
+    FalsePos = sum(rejections > k)
+    TruePos = sum(rejections <= k)
+    TrueNeg = numBetasEqual0 - FalsePos
+    
+    # family-wise error
+    FWER = any(rejections > k)
+    # false discovery proportion
+    FDR = FalsePos / (FalsePos + TruePos)
+    # sensitivity
+    sensitivity = TruePos / k
+    # specifity
+    specificity = TrueNeg / (TrueNeg + FalsePos)
+    
+    # Collect results for column in our multipleTests matrix
+    multipleTests["FWER", j] = FWER
+    multipleTests["FDR", j] = FDR
+    multipleTests["sensitivity", j] = sensitivity
+    multipleTests["specificity", j] = specificity
+  }
+  # Take average for each test
+  multipleTests = rowMeans(multipleTests)
+}
+```
+
+#### Part d.
+Apply your function from the previous part to the matrix of uncorrected P-values 
+generated in part B. Use the function p.adjust() to correct these p-values for 
+multiple comparisons using ‘Bonferroni’, ‘Holm’, ‘BH’ (Benjamini-Hochberg), and 
+‘BY’. Use your evaluate() function for each set of adjusted p-values.
+
+*Solution:*
+```{r q2_d_code, eval = FALSE, echo = TRUE}
+# Assumes NumBetas != 0 are at the first k rows of our data frame
+### Perform p-value adjustments and add to data frame
+correctionsList = c("bonferroni", "holm", "BH", "BY")
+testsList = c("FWER", "FDR", "sensitivity", "specificity")
+
+alpha = 0.05
+# Set up our matrix to collect multiple Tests for each column
+multipleTests = data.frame(matrix(
+  nrow = length(testsList), 
+  ncol = length(correctionsList)))
+row.names(multipleTests) = testsList
+colnames(multipleTests) = correctionsList
+
+# Loop through each method from our Corrections list and produce a table with 
+# the output from our evaluate function for each correction method
+for (methodName in correctionsList)
+{
+  # Initializing p_values matrix
+  p_values = matrix(nrow = nrow(p_values_m), ncol = ncol(p_values_m))
+  
+  # adjusting p_values given the method
+  p_values = as.matrix(p.adjust(p_values_m, method = methodName))
+  dim(p_values) = c(p, mc_rep)
+  
+  # Run tests with our evaluate function
+  test = evaluate(p_values, alpha, k)
+  
+  # Update column of multipleTests matrix with results from evaluate()
+  multipleTests[, methodName] = test
+}
+
+# Calculate Unadjusted P-Values
+multipleTests[,"Unadjusted_Pvals"] = evaluate(p_values_m, alpha, k)
+multipleTests = round(multipleTests, digits = 3)
+
+# Add column containing the tests we performed
+multipleTests["Tests",] = c(correctionsList, "Unadjusted")
+multipleTests = as.data.frame(t(multipleTests))
+
+# Reorder rows to be displayed in bar graphs
+multipleTests = multipleTests[c("Unadjusted_Pvals",correctionsList),]
+multipleTests$Tests = factor(multipleTests$Tests, 
+                              levels = multipleTests$Tests)
+```
+
+
+### Part e.
+Produce one or more nicely formatted graphs or tables reporting your results. 
+Briefly discuss what you found.
+
+*Solution:*
+In this example, we take the number of monte carlo simulations: `mc_rep = 100`. 
+Below is a histogram of the p-values for $\beta_i = 0$, resulting in 9000 
+observations. Ideally we would like most if not all p-values to not be 
+significant. The histogram demonstrates that the p-values are uniformly 
+distributed across the range [0,1].
+
+```{r q2_e_graph1, fig.cap = cap}
+cap = "**Figure 5.** Histogram of p-values generated from our simulation"
+p_valuesHist = data.frame(p_values_m[-c(1:10),] %>% c(9000,1))
+colnames(p_valuesHist)[1] = "p_values"
+p_valuesHist = data.frame(p_valuesHist[-c(9001,9002),])
+colnames(p_valuesHist)[1] = "p_values"
+
+ggplot(p_valuesHist, aes(x = p_values)) + 
+  geom_histogram(binwidth = 0.01, color = "black", fill = "lightblue") +
+  ggtitle("Histogram of p-values generated from our simulation")
+```
+
+```{r q2_e_graph2, fig.cap = cap}
+cap = "**Figure 6.** Monte Carlo Estimates of Family Wise Error Rate (FWER), 
+False Discovery Rate (FDR), Sensitivity, and Specificity"
+
+textSize = 8
+
+p1 = ggplot(data = multipleTests, aes(x = Tests, y = FWER)) +
+geom_bar(stat = "identity", fill = "steelblue") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(size = textSize))
+
+p2 = ggplot(data = multipleTests, aes(x = Tests, y = FDR)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(size = textSize))
+
+p3 = ggplot(data = multipleTests, aes(x = Tests, y = sensitivity)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(size = textSize))
+
+p4 = ggplot(data = multipleTests, aes(x = Tests, y = specificity)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(size = textSize))
+
+grid.arrange(p1, p2, p3, p4, nrow = 2)
+```
+1. After our corrections, the Family Wise Error Rate (FWER) decreased for each of the the corrections. FWER decreased the most for Bonferroni and Holm corrections.
+2. The false discovery rate also improved and decreased the most for Bonferroni and Holm corrections compared to the Unadjusted p-values.
+3. The Sensitivity of our p-values did not change.
+4. The Specificity improved for all corrections resulting in fewer False Positives.
+
+
+\pagebreak
+
+## Question 3
+This is a bonus question related to problem 6 from the midterm. First, review 
+the script written in Stata available here. In this question, you will work 
+through various options for translating this analysis into R. You may submit 
+all or some of these, but each part must be entirely correct to earn the points 
+listed.
+
+
+```{r ps3_q3_source, message = FALSE}
+source('./ps3_q3.R')
+```
+
+#### Part a. 
+Write a translation using data.table for the computations. 
+
+```{r q3_a_code, engine = 'R', eval = FALSE, echo = TRUE, results = FALSE}
+mtcarsDT = data.table(mtcars)
+mtcarsDT = mtcarsDT[order(cyl), .(mpg, cyl, disp, hp, wt)]
+
+beta_cylDT = mtcarsDT[, .(mpg,
+                          disp_gc = disp - mean(disp),
+                          hp_gc = hp - mean(hp),
+                          wt_gc = wt - mean(wt)), 
+                      by = .(cyl)]
+
+Xpmg = beta_cylDT[, .(dispXmpg = sum(mpg * disp_gc),
+                      vdisp = var(disp_gc),
+                      hpXmpg = sum(mpg*hp_gc), 
+                      vhp = var(hp_gc),
+                      wtXmpg = sum(mpg*wt_gc), 
+                      vwt = var(wt_gc)),
+                  by = .(cyl)]
+betas = Xpmg[, .(beta_cyl_disp = dispXmpg / (vdisp),
+                       beta_cyl_hp = hpXmpg / (vhp),
+                       beta_cyl_wt = wtXmpg / (vwt)), by = .(cyl)]
+```
+
+#### Part b. 
+Write a function to compute the univariate regression coefficient by group for 
+an arbitrary dependent, independent, and grouping variables. Use data.table for 
+computations within your function. Test your function by showing it produces the 
+same results as in part a.
+
+```{r q3d_table}
+cap = '**Table 6.** Average annual electricity utilization by Census Division 
+in kwh/home.'
+
+# Pretty printing
+pwc = function(x) format(round(x, digits = 2), big.mark = ',')
+
+betas %>%
+  transmute( 
+    `Number of Cylinders` = cyl,
+    `beta Estimate: Displacement` = pwc(disp_beta_cylDT),
+    `beta Estimate: Horsepower` = pwc(hp_beta_cylDT),
+    `beta Estimate: Weight` = pwc(wt_beta_cylDT),
+  ) %>%
+  knitr::kable( align = 'r', caption = cap)
+```
+
+
+#### Part c. 
+Compute the regression coefficients using the dplyr verb summarize_at().
+
+```{r q3_c_code, engine = 'R', eval = FALSE, echo = TRUE, results = FALSE}
+betas = mtcars %>%
+  group_by(cyl) %>%
+  summarise_at(vars(disp, hp, wt), 
+               funs(beta_cylDT = sum(mpg * (. - mean(.)) ) / var(. - mean(.)) )
+               )
+```
+
+#### Part d. 
+Write a function similar to the one in part b to compute arbitrary univariate 
+regression coefficients by group. Use dplyr for computations within your 
+function. You should read the “Programming with dplyr” vignette at 
+vignette('programming', 'dplyr') before attempting this. Warning: this may be 
+difficult to debug!
+
+```{r q3_d_code, eval = FALSE, echo = TRUE}
+getRegressCoeffDplyr = function(df, group_var, args, dependVar)
+{
+  group_var = enquo(group_var)
+  dependVar = enquo(dependVar)
+    
+  df %>%
+    group_by(!!group_var) %>%
+    summarise_at(
+      vars(!!!args), 
+      funs(beta = 
+             sum(!!dependVar * (. - mean(.)) ) / var(. - mean(.)) )
+    )
+}
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

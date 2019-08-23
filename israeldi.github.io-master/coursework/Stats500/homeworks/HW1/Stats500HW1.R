@@ -1,0 +1,48 @@
+library(faraway)
+data(teengamb)
+## Categorical Variable (Sex)
+teengamb$sex = factor(teengamb$sex)
+levels(teengamb$sex) <- c("male","female")
+summary(teengamb)
+
+## Linear Reg of sex/status/income/verbal on gamble
+#regmodel = lm(gamble ~ sex + status + income + verbal, data=teengamb)
+#summary(regmodel)
+
+## Means and median of income
+mean(teengamb$income)
+median(teengamb$income)
+
+## Means and median of gamble
+mean(teengamb$gamble)
+median(teengamb$gamble)
+
+## Histograms of income and gamble
+hist(teengamb$income, cex.main = .9, cex.lab = .9, main = "Histogram of Income", xlab = "Income per week")
+hist(teengamb$gamble, cex.main = .9, cex.lab = .9, main = "Histogram of Gamble", xlab = "Yearly expenditures")
+
+## Histograms and Boxplot for Verbal
+hist(teengamb$verbal, cex.main = .9, cex.lab = .9, main = "Histogram of Verbal", xlab = "Verbal Score")
+boxplot(teengamb$verbal, cex.main = .9, cex.lab = .9, main = "Box plot of Verbal")
+
+## Outliers from the Boxplot (1 and 2 for verbal score)
+teengamb[teengamb$verbal <= 2, ]
+
+
+plot(teengamb$income, teengamb$gamble, pch = 16, cex = 1, cex.main = .9, cex.lab = .9, col = "blue", 
+     main = "GAMBLE PLOTTED AGAINST INCOME", xlab = "income (pounds/week)", 
+     ylab = "Gamble expenditures (pounds/year)")
+# curious about sex and income expenditures
+maleObs = teengamb[teengamb$sex == 'male', ]
+femaleObs = teengamb[teengamb$sex == 'female', ]
+
+plot(maleObs$income, maleObs$gamble, pch = 16, cex = 1, cex.main = .9, cex.lab = .9, col = "blue", 
+     main = "GAMBLE PLOTTED AGAINST INCOME (male)", xlab = "income (pounds/week)", 
+     ylab = "Gamble expenditures (pounds/year)")
+
+plot(femaleObs$income, femaleObs$gamble, pch = 16, cex = 1, cex.main = .9, cex.lab = .9, col = "blue", 
+     main = "GAMBLE PLOTTED AGAINST INCOME (female)", xlab = "income (pounds/week)", 
+     ylab = "Gamble expenditures (pounds/year)")
+
+
+abline(lm(gamble ~ income, data=teengamb))

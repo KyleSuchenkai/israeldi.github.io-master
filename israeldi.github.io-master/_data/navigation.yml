@@ -1,0 +1,22 @@
+# main links
+main:
+  - title: "About"
+    url: https://israeldi.github.io/
+  - title: "Coursework"
+    url: https://israeldi.github.io/coursework/
+  - title: "Projects/Competitions"
+    url: https://israeldi.github.io/projects/
+  - title: "Quant Lab"
+    url: https://israeldi.github.io/quantlab/
+  - title: "Github"
+    icon: "fab fa-fw fa-github"
+    url: https://github.com/israeldi
+  - title: "LinkedIn"
+    icon: "fab fa-fw fa-linkedin"
+    url: https://www.linkedin.com/in/israel-diego/
+  # - title: "Sample Posts"
+  #   url: /year-archive/
+  # - title: "Sample Collections"
+  #   url: /collection-archive/
+  #- title: "Sitemap"
+  #  url: /sitemap/

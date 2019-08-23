@@ -1,0 +1,17 @@
+name: "Stats 500"
+output_dir: "."  # necessary for hosting on GitHub; just add it for now
+navbar:  
+  title: "Stats 500"
+  left:  # you can also use 'right'
+    - text: ""
+      href: index.html  # don't link to the .Rmd file
+    - text: "Back to Personal Site"
+      icon: fa-home
+      href: "http://israeldi.github.io/Stats500/"  # don't link to the .Rmd file
+  right:
+    - text: "Github"
+      icon: fa-github
+      href: "https://github.com/israeldi/israeldi.github.io/tree/master/Stats500/homeworks"
+    - text: "LinkedIn"
+      icon: fa-linkedin
+      href: "https://www.linkedin.com/in/israel-diego/"

@@ -1,0 +1,118 @@
+---
+title: "Average Cost of the Most Common Heart Procedure in the U.S by State"
+author: "Israel Diego"
+date: "`r format.Date(Sys.Date(), '%B %d, %Y')`"
+output:
+  html_document:
+    includes:
+      in_header: ./Web_Materials/header.html
+      after_body: ./Web_Materials/disqus.html
+    toc: true
+    toc_float: true
+    theme: cerulean
+    highlight: pygments
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(data.table)
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+library(directlabels)
+```
+
+## Introduction
+
+We wish to figure out the most common heart procedure in the U.S using the 
+*Medicare Physician and Other Supplier Data* for years (2012-2016) and then
+calculate the average cost of this procedure for each state over our five-year 
+time period. 
+
+## Methods
+
+We extract the following columns for each year (2012-2016) using `dplyr`: 
+
+* **HCPCS_CODE**: Code for the specific medical service
+* **HCPCS_DESCRIPTION**: Description of the HCPCS code for the specific medical 
+service
+  + We will search in the description for all heart procedures
+* **NPPES_PROVIDER_STATE**: The state where the provider is located
+* **LINE_SRVC_CNT**: Number of Services
+  + We will extract the heart procedure with the most number of services
+* **AVERAGE_MEDICARE_PAYMENT_AMT**: Average Medicare Payment amount for service
+
+
+## Results
+```{r ps4_q2c_source, message = FALSE, echo = FALSE}
+source('./individual_project.R')
+```
+
+First we find the top Heart Procedures in the U.S, which are listed below. We
+determine that ***Ultrasound Examination of Heart*** is the most common heart 
+procedure in the U.S.
+
+```{r results_table1, echo = FALSE}
+cap = '**Table 1.** Top 5 Heart Procedures in the U.S'
+
+# Pretty Printing
+pwc = function(x) format(round(x), big.mark = ',')
+
+# Display Procedure and Total number of services provided for this procedure
+topProcCode %>%
+  transmute( 
+    `Total Services` = pwc(count),
+    `Description` = description) %>%
+  knitr::kable( align = 'r', caption = cap)
+```
+
+Next, we compute the average cost of this procedure for each U.S state from (2012-2016). For brevity, we will display the top five states with the 
+highest average cost over the 5-year period. Likewise, we will display the 
+five states with the lowest average cost of this time period. 
+
+```{r results_table2, echo = FALSE}
+cap = '**Table 1.** Average annual Heart Ultra Sound Cost'
+
+# Pretty Printing
+pwc = function(x) format(round(x, digits = 2), big.mark = ',')
+
+stateRanks %>%
+  transmute( 
+    `State` = state,
+    `2012` = paste0('$', pwc(avg2012)),
+    `2013` = paste0('$', pwc(avg2013)),
+    `2014` = paste0('$', pwc(avg2014)),
+    `2015` = paste0('$', pwc(avg2015)),
+    `2016` = paste0('$', pwc(avg2016)),
+    `Overall Average` = paste0('$', pwc(avgOverall))) %>%
+  knitr::kable( align = 'r', caption = cap)
+```
+
+In order to visualize the trends in our time-series we will display the results
+graphically.
+
+```{r results_figure, echo = FALSE, fig.cap = cap}
+cap = '**Figure 1.** Average annual Cost of Heart Ultra Sound, Top 5 and 
+Lowest 5 U.S States'
+# Plot the 10 states, top 5 and lowest 5 average cost
+ggplot(aggregateStateAvgPayment, 
+                       aes(x = year, 
+                           y = avgPayment, 
+                           group = state, 
+                           color = state)) +
+  geom_line() +
+  geom_dl(aes(label = state), 
+          method = list(dl.combine("first.points"), cex = 0.7)) +
+  ggtitle("Average Payment for Heart Ultra Sound By State (2012-2016)") +
+  ylab('Average Payment for Service ($)' ) +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+## Discussion
+First, we find that Ultra Sounds of the Heart are the most commonly used heart
+procedure in the U.S. Second, the average cost of an ultra sound decreased
+dramatically for all states in 2014. This trend can be further 
+[evidenced](https://en.wikipedia.org/wiki/Patient_Protection_and_Affordable_Care_Act) 
+by the establishment of the Affordable Care Act (ACA) whose major provisions 
+came into force in 2014. 

@@ -1,0 +1,266 @@
+---
+title: "Problem Set 2"
+author: "Israel Diego"
+date: "October 19, 2018"
+output:
+  html_document:
+    includes:
+      in_header: ./Web_Materials/header.html
+      after_body: ./Web_Materials/disqus.html
+    toc: true
+    toc_float: true
+    theme: cerulean
+    highlight: pygments
+---
+
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE, cache=FALSE}
+library(knitr)
+library(gdata)
+library(dplyr)
+library(faraway)
+source('ps2_q3.R', local = TRUE, echo = FALSE)
+```
+
+## Question 1
+Below we show estimates of national totals for residential energy consumption using Stata:
+
+i. Electricity usage in kilowatt hours
+
+i. Natural gas usage, in hundreds of cubic feet
+
+i. Propane usage, in gallons
+
+i. Fuel oil or kerosene usage, in gallons
+
+```{r Table_q1, echo= FALSE, message=FALSE, warning=FALSE}
+library(dplyr)
+library(knitr)
+
+df = gdata::read.xls("ps2_q2_Stata.xlsx", sheet = "q1", header = TRUE)
+df = df %>% 
+  select(Variables, Total, BRR.Std..Err., X95..Lower, X95..Upper)
+df[,2:5] = df[,2:5] / (10^9)
+cap_title = '**National Totals for residential energy consumption 2015**'
+cap_text0 = 'Results expressed in (Billions)'
+cap_text1 = ''
+cap = paste(cap_title, cap_text0, cap_text1)
+cols = c('', 
+         'Totals', 
+         'BRR Std Err.',
+         '95% Low',
+         '95% Upper')
+kable(df, caption = cap, col.names = cols, digits = 3)
+```
+
+\pagebreak
+
+## Question 2/3
+For this question we use the 2005-2006 Nhanes oral health data and 2005-2006 
+demographic data. Analysis is done in Stata and in R. 
+
+### Part a. 
+First we merge both data sets by participant id. Which drops some unusued 
+observations in the demographic data set. Mainly going from 10348 observations 
+in the demographic data to 8305 observations in the oral health data. 
+
+### Part b.
+Using logistic regression, we estimate the relationship between age (in months) 
+and the probability that an individual has lost a primary upper right 2nd 
+bicuspid.
+Using the fitted model we estimate the ages at which 25, 50, and 75% of 
+individuals lose their primary upper right 2nd bicuspid. 
+
+Below are the are the results of our logistic regression.
+
+```{r Table_q2_b, echo = FALSE}
+df = gdata::read.xls("ps2_q2_Stata.xlsx", sheet = "partb", header = TRUE)
+df = df %>% select(notPrimary, Coef., Std..Err., X95..Lower , X95..Upper)
+cap_title = '**Logistic Regression of monthly age on presence of Primary '
+cap_text0 = 'Tooth Upper 2nd Bicuspid**'
+cap_text1 = ''
+cap = paste(cap_title, cap_text0, cap_text1)
+cols = c('notPrimary', 
+         'Coef.',
+         'Std. Err.',
+         '95% Low',
+         '95% Upper')
+kable(df, caption = cap, col.names = cols, digits = 2)
+```
+
+On the next page we also plot our fitted model.
+
+```{r Table_q2_b_plot, echo = FALSE}
+range = data.frame(ageMonths = seq(0,1000, by = 1))
+pred.l = ilogit(predict(fit0, range))
+matplot(range, pred.l, xlim = c(0,250),
+        ylim = c(0,1), xlab = "Age in Months", 
+        ylab = "Prob Primary Tooth is Not Present",
+        type = 'l', lty = 'solid', 
+        main = "Logistic Regression of monthly \n age on presence of primary tooth",
+        col = "blue")
+```
+
+Below are the predicted ages in months and in years at which a primary tooth 
+would be lost at the 25, 50, 75% levels.
+
+```{r Table_q2_b2, echo = FALSE}
+df = gdata::read.xls("ps2_q2_Stata.xlsx", sheet = "Ages", header = TRUE)
+cap_title = '**Representative Ages at 25, 50, 75% levels according to our '
+cap_text0 = ' fitted model**'
+cap_text1 = ''
+cap = paste(cap_title, cap_text0, cap_text1)
+cols = c('Age (Months) at 25%', 
+         'Age (Months) at 50%',
+         'Age (Months) at 75%',
+         'Age (Years) at 25%',
+         'Age (Years) at 75%')
+kable(df, caption = cap, col.names = cols, digits = 2)
+```
+
+### Part c.
+Continuing from the regression in part b, we now control for separate 
+demographics, such as: Gender, Ethnicity, and Income Poverty Ratio.
+
+```{r Table_q2_c, echo = FALSE}
+df = gdata::read.xls("ps2_q2_Stata.xlsx", sheet = "partc", header = TRUE)
+cap_title = '**Various Logistic Regressions on some demographic variables**'
+cap_text0 = ''
+cap_text1 = ''
+cap = paste(cap_title, cap_text0, cap_text1)
+cols = c('', 
+         'Age',
+         'Age/Gender',
+         'Age/Mex',
+         'Age/Black',
+         'Age/Black/Other',
+         'Age/Black/InPovRatio')
+kable(df, caption = cap, col.names = cols, digits = 2)
+```
+
+i. We do not retain gender, because this caused an increase in BIC. 
+
+ii. We do not retain Mexican, or Other categories of ethnicities, but we do 
+retain Non-Hispanic Black.
+
+iii. We retain poverty income ratio because it drops BIC to 1462.895. As a final 
+result we retain black ethnicity and Income Poverty Ratio to the regression 
+which both improved BIC. 
+
+### Part d.
+Now we use the margins command to compute the following:
+
+i. Adjusted predctions at the mean (for other values) at each of the 
+representative ages (8 - 12 years old).
+
+```{r Table_q2_d1, echo = FALSE}
+df = gdata::read.xls("ps2_q2_Stata.xlsx", sheet = "partd1", header = TRUE)
+df = df[,c(1:3,6:7)]
+df$Rep..Ages = c(8:12)
+cap_title = '**Adjusted predictions at the mean**'
+cap_text0 = ''
+cap_text1 = ''
+cap = paste(cap_title, cap_text0, cap_text1)
+cols = c('Age (Years)',
+         'Margin',
+         'Std. Err.',
+         '95% Low',
+         '95% Upper')
+kable(df, caption = cap, col.names = cols, digits = 3)
+```
+
+Below we show a plot of the adjusted predictions which demonstrates that the 
+representative ages are evenly spaced out.
+
+```{r q2_d1_plot, results = TRUE, echo = FALSE}
+nhanes_atmean %>% 
+  ggplot(aes(y = ageMonths, x = fit)) +
+  geom_point() +
+  geom_errorbarh(aes(xmin = lwr, xmax = upr), height = .1) +
+  geom_vline(aes(xintercept = fit), lty = 'dashed', color = 'grey', alpha = .5) +
+  theme_bw() +
+  xlim(c(0,1)) +
+  ggtitle("Adjusted Predictions at the mean") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+\pagebreak
+
+i. The marginal effects at the mean of Black and Income Poverty Ratio variables 
+at the representative ages (8 - 12 years old).
+
+```{r Table_q2_d2, echo = FALSE}
+df = gdata::read.xls("ps2_q2_Stata.xlsx", sheet = "partd2", header = TRUE)
+df = df[,c(1:3,6:7)]
+df$Rep..Ages = c(8:12)
+cap_title = '**Marginal Effects at the Mean**'
+cap_text0 = ''
+cap_text1 = ''
+cap = paste(cap_title, cap_text0, cap_text1)
+cols = c('Age (Years)', 
+         'MEM',
+         'Std. Err.',
+         '95% Low',
+         '95% Upper')
+kable(df, caption = cap, col.names = cols, digits = 4)
+```
+
+i. The average marginal effect of Black and Income Poverty Ratio variables 
+at the representative ages (8 - 12 years old).
+
+```{r Table_q2_d3, echo = FALSE}
+df = gdata::read.xls("ps2_q2_Stata.xlsx", sheet = "partd3", header = TRUE)
+df = df[,c(1:3,6:7)]
+df$Rep..Ages = c(8:12)
+cap_title = '**Average Marginal Effects at Representative Ages**'
+cap_text0 = ''
+cap_text1 = ''
+cap = paste(cap_title, cap_text0, cap_text1)
+cols = c('Age (Years)', 
+         'AME',
+         'Std. Err.',
+         '95% Low',
+         '95% Upper')
+kable(df, caption = cap, col.names = cols, digits = 4)
+```
+
+### Part e.
+We refit the final model from part c using svyset and compare the new model to 
+the old model.
+
+```{r Table_q2_c2, echo = FALSE}
+df = gdata::read.xls("ps2_q2_Stata.xlsx", sheet = "partc2", header = TRUE)
+df = df[,c(1:3,5:7)]
+cap_title = '**Logit Regression with Before Survey Weighting**'
+cap_text0 = ''
+cap_text1 = ''
+cap = paste(cap_title, cap_text0, cap_text1)
+cols = c('notPrimary', 
+         'Coef.',
+         'Std. Err.',
+         'p-value',
+         '95% Low',
+         '95% Upper')
+kable(df, caption = cap, col.names = cols, digits = 4)
+```
+
+```{r Table_q2_e, echo = FALSE}
+df = gdata::read.xls("ps2_q2_Stata.xlsx", sheet = "parte", header = TRUE)
+df = df[,c(1:3,5:7)]
+cap_title = '**Logit Regression with Survey Weighting**'
+cap_text0 = ''
+cap_text1 = ''
+cap = paste(cap_title, cap_text0, cap_text1)
+cols = c('notPrimary', 
+         'Coef.',
+         'Std. Err.',
+         'p-value',
+         '95% Low',
+         '95% Upper')
+kable(df, caption = cap, col.names = cols, digits = 4)
+```
+
+We notice that there are some slight changes in regression coefficients. The 
+main result is that income poverty ratio is no longer significant as 
+demonstrated by it's p-value of 0.14. However, the age and black ethnicity 
+predictors are still highly significant even though their standard errors 
+increased a bit. 

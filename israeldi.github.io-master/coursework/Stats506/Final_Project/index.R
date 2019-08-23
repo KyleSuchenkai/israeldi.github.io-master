@@ -1,0 +1,2 @@
+rmarkdown::render('finalProject.Rmd',
+                  output_file = paste0("index.html"))

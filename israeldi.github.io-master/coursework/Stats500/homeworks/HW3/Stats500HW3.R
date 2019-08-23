@@ -1,0 +1,191 @@
+rm(list = ls())
+library(faraway)
+data(sat)
+
+# PART A
+# Problem 1
+regmodel = lm(total ~ takers + ratio + salary, data = sat)
+summary(regmodel)
+# R-squared is 0.8239
+
+# Problem 2
+## CDF of t-distribution
+pValueSalary = (1 - pt(2.541, df=46))
+# The pvalue is 0.00724543617 which means we reject the null hypothesis
+# that B_salary = 0, against H1: B_salary > 0.
+
+# Problem 3
+# Hypothesis test for ratio variable
+pValueRatio = 2 * (1 - pt(2.187, df=46))
+# The pvalue is 0.03386468 which means we reject the null that 
+# B_ratio = 0 at the 5% level but not the 1%
+
+# Problem 4
+hO = lm(total ~ 1, data = sat)
+hOa = lm(total ~ takers + ratio + salary, data = sat)
+anova(hO,hOa)
+# Testing that all coefficients are 0. Given that the pValue
+# is very small, we reject the null that the whole rejection
+# model has no explanatory power
+
+# Problem 5
+conf95 = confint(regmodel)
+conf95
+conf99 = confint(regmodel,level = .99)
+conf99
+# We deduce that the pValue must be below .01 since the coefficient for
+# salary is inside the interval for both confidence intervals
+
+# Problem 6
+# Need to install "ellipse" package
+library(ellipse)
+# Plot confidence region
+plot(ellipse(regmodel, c('ratio','salary')),type = "l", xlim=c(-12,2), ylim = c(-2,6),
+     main = "95% Conf. region of ratio and salary")
+# Add the estimates to the plot
+points(regmodel$coef["ratio"], regmodel$coef["salary"], pch = 18)
+# Add the origin to the plot
+points(0, 0, pch=1)
+# Add the confidence interval for pop15
+abline(v=conf95[3,], lty=2)
+
+# Add the confidence interval for pop75
+abline(h=conf99[4,], lty=2)
+
+
+# Problem 7
+regmodel2 = lm(total ~ takers + ratio + salary + expend, data = sat)
+summary(regmodel2)
+
+# Problem 8
+hO8 = lm(total ~ takers, data = sat)
+hOa8 = lm(total ~ takers + ratio + salary + expend, data = sat)
+anova(hO8,hOa8)
+# Testing that all coefficients are 0. Given that the pValue
+# is very small, we reject the null that the whole rejection
+# model has no explanatory power
+
+
+
+# PART B
+rm(list = ls())
+library(faraway)
+data(teengamb)
+## Categorical Variable (Sex)
+teengamb$sex = factor(teengamb$sex)
+levels(teengamb$sex) <- c("male","female")
+
+# Regressing on sex, status, income, and verbal
+regmodel = lm(gamble ~ sex + status + income + verbal, data=teengamb)
+summary(regmodel)
+
+# Plot of Residuals and Fitted Values 
+plot(regmodel$fitted, regmodel$residuals, pch = 16, cex = 1, cex.main = 1, cex.lab = 1, col = "blue", 
+     main = "RESIDUALS AGAINST FITTED VALUES", xlab = "Fitted", 
+     ylab = "Residuals")
+abline(h=0)
+
+summary(lm(abs(regmodel$residual) ~
+             regmodel$fitted))
+
+
+# Correcting for Heteroskedasticity by square root
+sqrtRegmodel = lm(sqrt(gamble) ~ sex + status + income + verbal, data=teengamb)
+summary(sqrtRegmodel)
+# Diagnostics for the new model
+# New Model plot of residuals and fitted values
+plot(sqrtRegmodel$fitted, sqrtRegmodel$residuals, pch = 16, cex = 1, cex.main = .9, cex.lab = .9, col = "blue", 
+     main = "RESIDUALS AGAINST FITTED VALUES", xlab = "Fitted", 
+     ylab = "Residuals")
+abline(h=0)
+
+summary(lm(abs(sqrtRegmodel$residual) ~
+             sqrtRegmodel$fitted))
+
+## QQ-plot for normality
+qqnorm(sqrtRegmodel$residuals, ylab="Residuals")
+qqline(sqrtRegmodel$residuals)
+## Histogram
+hist(sqrtRegmodel$residuals, xlab="Residuals", 
+     main = "Histogram of Residuals")
+# Shapiro-Wilk test for normality
+shapiro.test(sqrtRegmodel$residuals)
+
+#  Half-normal plot for leverages
+halfnorm(lm.influence(sqrtRegmodel)$hat, nlab = 2,
+           ylab="Leverages",main = "Plot of leverages")
+teengamb[c(42,35),]
+
+
+# Checking for Outliers
+boxplot(teengamb$gamble, cex.main = .9, cex.lab = .9, main = "Box plot of Gamble")
+## Compute (externally) studentized residuals
+ti = rstudent(sqrtRegmodel)
+max(abs(ti))
+
+which(ti == max(abs(ti)))
+
+## Compute p-value
+pVal = 2*(1-pt(max(abs(ti)), df=47-5-1))
+
+## compare to alpha/n
+alphaN = 0.05/47
+summary(sqrtRegmodel)
+# The pValue is bigger than alpha/n thus we conclude there must be no outliers in the 
+# data
+# alternatively we can compute qt(.05/(47*2),42), and compare to max(abs(ti))
+
+
+## Compute Cook’s distance
+cook = cooks.distance(sqrtRegmodel)
+halfnorm(cook, nlab = 3, ylab="Cook’s distance", main = "Cook's distance plot")
+teengamb[c(5,39,24),]
+
+temp24 = teengamb[-24,]
+## Fit the model w/observation 24
+summary(sqrtRegmodel)
+regmodel24 = lm(sqrt(gamble) ~ sex + status + income + verbal, 
+                  data=temp24)
+summary(regmodel24)
+
+#pretendresiduals = rnorm(50)
+#cutoff = 2
+#abs(pretendresiduals)>cutoff
+#which(abs(pretendresiduals)>cutoff)
+
+
+result = lm(sqrt(gamble) ~ sex + status + income + verbal, data=teengamb)
+## Partial regression plot
+delta = residuals(lm(sqrt(gamble) ~ sex + status + verbal, data=teengamb))
+gamma = residuals(lm(income ~ sex + status
+                        + verbal, data=teengamb))
+plot(gamma,delta, xlab="Income Residuals",
+       ylab = "Gamble Residuals")
+temp = lm(delta ~ gamma)
+abline(reg = temp)
+coef(temp)
+coef(result)
+
+## Partial residual plot
+plot(teengamb$income, result$residuals + coef(result)['income']*teengamb$income, 
+     xlab="Income", ylab="Gamble (adjusted for income)")
+abline(a=0, b=coef(result)['income'])
+
+## Plot residuals vs predictors
+plot(teengamb$income, result$residual,main = "Income Residuals",
+       xlab="income",
+       ylab="Residuals")
+plot(teengamb$status, result$residual, main = "Status Residuals",
+       xlab="status",
+       ylab="Residuals")
+plot(teengamb$verbal, result$residual, main = "Verbal Residuals",
+     xlab="verbal",
+     ylab="Residuals")
+
+## Two separate regressions on two groups
+temp1 = lm(sqrt(gamble) ~ sex + status + income + 
+             verbal, data = teengamb, subset=(income > 5))
+temp2 = lm(sqrt(gamble) ~ sex + status + income +
+             verbal, data=teengamb, subset = (income < 5))
+summary(temp1)
+summary(temp2)
